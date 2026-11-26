@@ -33,14 +33,16 @@ export const BottomDock: React.FC = () => {
               key={to}
               to={to}
               end={end}
+              title={label}
+              aria-label={label}
               className={({ isActive }) =>
-                `dock-btn flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl text-[9px] sm:text-[10px] font-mono transition ${
+                `dock-btn flex flex-col items-center justify-center py-2.5 sm:py-1.5 px-0.5 rounded-xl text-[10px] font-mono transition ${
                   isActive ? 'bg-[#EFE078] text-[#111111] font-bold' : ''
                 }`
               }
             >
-              <Icon className="w-4 h-4 mb-0.5" />
-              <span className="truncate max-w-full">{label}</span>
+              <Icon className="w-5 h-5 sm:w-4 sm:h-4 sm:mb-0.5" />
+              <span className="hidden sm:block truncate max-w-full">{label}</span>
             </NavLink>
           ))}
         </div>
