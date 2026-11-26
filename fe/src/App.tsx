@@ -2,14 +2,16 @@ import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AppProvider } from './context/AppContext';
-import { CourseDetailPage } from './pages/CourseDetailPage';
-import { CoursesPage } from './pages/CoursesPage';
-import { FlashcardPage } from './pages/FlashcardPage';
-import { GamePage } from './pages/GamePage';
-import { HomePage } from './pages/HomePage';
-import { NotesPage } from './pages/NotesPage';
-import { VocabPage } from './pages/VocabPage';
-import { WritingPage } from './pages/WritingPage';
+import {
+  CourseDetailPage,
+  CoursesPage,
+  FlashcardPage,
+  GamePage,
+  HomePage,
+  NotesPage,
+  VocabPage,
+  WritingPage,
+} from './routes/lazyPages';
 
 export const App: React.FC = () => {
   return (

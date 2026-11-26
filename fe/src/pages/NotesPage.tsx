@@ -120,7 +120,7 @@ export const NotesPage: React.FC = () => {
               id="note-tag"
               value={tag}
               onChange={(e) => setTag(e.target.value)}
-              className="flex-1 px-2.5 py-1.5 bg-[#F8F6F1] border-[1.5px] border-[#141414] rounded font-bold outline-none"
+              className="flex-1 min-w-0 px-2.5 py-1.5 bg-[#F8F6F1] border-[1.5px] border-[#141414] rounded font-bold outline-none"
             >
               <option value="Nhật ký">Nhật ký</option>
               <option value="Ngữ pháp">Ngữ pháp</option>

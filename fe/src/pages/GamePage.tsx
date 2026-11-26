@@ -149,22 +149,22 @@ export const GamePage: React.FC = () => {
           <h2 className="font-serif font-bold text-2xl">Đấu trường Mini-Game</h2>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
+        <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 font-mono text-[11px] sm:text-xs min-w-0">
           <select
             value={levelFilter}
             onChange={(e) => setLevelFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-white text-[#111111] border-[1.5px] border-[#141414] rounded font-mono text-xs font-bold outline-none"
+            className="flex-1 min-w-0 sm:flex-none px-2 sm:px-2.5 py-1.5 bg-white text-[#111111] border-[1.5px] border-[#141414] rounded font-mono text-[11px] sm:text-xs font-bold outline-none truncate"
           >
             <option value="all">Tất cả HSK (1–6)</option>
-            <option value="5">Chỉ HSK 5 (Đang học)</option>
-            <option value="4">Chỉ HSK 4</option>
-            <option value="6">Chỉ HSK 6</option>
+            <option value="5">HSK 5 (Đang học)</option>
+            <option value="4">HSK 4</option>
+            <option value="6">HSK 6</option>
             <option value="primary">Sơ cấp (HSK 1–3)</option>
           </select>
-          <span className="px-3 py-1.5 bg-[#EFE078] text-[#111111] t-badge font-bold">
+          <span className="px-2 sm:px-3 py-1.5 bg-[#EFE078] text-[#111111] t-badge font-bold whitespace-nowrap shrink-0">
             ĐIỂM: <span>{score}</span>
           </span>
-          <span className="px-3 py-1.5 bg-[#F4C2D7] text-[#111111] t-badge font-bold">
+          <span className="px-2 sm:px-3 py-1.5 bg-[#F4C2D7] text-[#111111] t-badge font-bold whitespace-nowrap shrink-0">
             COMBO: <span>{combo}</span>x
           </span>
         </div>
@@ -260,7 +260,7 @@ export const GamePage: React.FC = () => {
                     key={c.id}
                     type="button"
                     onClick={(e) => answerQuiz(c.id, e)}
-                    className={`t-btn p-4 text-[#111111] text-left ${bgClass}`}
+                    className={`t-btn p-4 text-[#111111] flex flex-col items-center justify-center text-center ${bgClass}`}
                   >
                     <div className="font-bold text-sm sm:text-base">{c.meaning}</div>
                     <div className="font-mono text-xs opacity-65 mt-0.5">{c.pinyin}</div>
@@ -301,7 +301,7 @@ export const GamePage: React.FC = () => {
                     key={c.id}
                     type="button"
                     onClick={(e) => answerQuiz(c.id, e)}
-                    className={`t-btn p-5 text-[#111111] text-center ${bgClass}`}
+                    className={`t-btn p-5 text-[#111111] flex flex-col items-center justify-center text-center ${bgClass}`}
                   >
                     <div className="font-serifcn text-3xl sm:text-4xl font-bold">{c.hanzi}</div>
                     <div className="text-xs opacity-65 mt-1">{c.meaning}</div>
@@ -340,7 +340,7 @@ export const GamePage: React.FC = () => {
                         setSelLeft(w.id);
                         evaluateMatch(w.id, selRight, { clientX: e.clientX, clientY: e.clientY });
                       }}
-                      className={`t-btn w-full py-3.5 px-3 font-serifcn text-2xl font-bold ${
+                      className={`t-btn w-full py-3.5 px-3 font-serifcn text-2xl font-bold flex items-center justify-center text-center ${
                         solved
                           ? 'bg-[#CBEAD8] opacity-50 line-through'
                           : sel
@@ -366,7 +366,7 @@ export const GamePage: React.FC = () => {
                         setSelRight(w.id);
                         evaluateMatch(selLeft, w.id, { clientX: e.clientX, clientY: e.clientY });
                       }}
-                      className={`t-btn w-full py-3.5 px-3 text-sm font-semibold ${
+                      className={`t-btn w-full py-3.5 px-3 text-sm font-semibold flex items-center justify-center text-center ${
                         solved
                           ? 'bg-[#CBEAD8] opacity-50 line-through'
                           : sel

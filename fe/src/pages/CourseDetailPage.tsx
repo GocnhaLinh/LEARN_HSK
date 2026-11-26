@@ -234,7 +234,7 @@ export const CourseDetailPage: React.FC = () => {
               Tải giáo trình .PDF / .DOCX / .TXT vào collection {meta.code}
             </h3>
           </div>
-          <span className="px-3 py-1.5 bg-[#EFE078] text-[#111111] font-mono text-[11px] font-bold t-badge shrink-0">
+          <span className="px-3 py-1.5 bg-[#EFE078] text-[#111111] font-mono text-[11px] font-bold t-badge !whitespace-normal sm:!whitespace-nowrap text-center">
             Tự tách từ + Tự sinh bài tập vào MongoDB
           </span>
         </div>
@@ -522,7 +522,7 @@ export const CourseDetailPage: React.FC = () => {
                                 },
                               }));
                             }}
-                            className={`t-btn px-3 py-2 text-left text-xs font-semibold text-[#111111] ${btnBg}`}
+                            className={`t-btn px-3 py-2 flex items-center justify-center text-center text-xs font-semibold text-[#111111] ${btnBg}`}
                           >
                             {opt}
                           </button>

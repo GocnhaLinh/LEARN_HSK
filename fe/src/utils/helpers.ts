@@ -32,6 +32,9 @@ export function speakChinese(text: string, rate = 0.95, onError?: (msg: string) 
 }
 
 export function spawnFloatingXP(amount: number, coords?: { clientX?: number; clientY?: number } | null): void {
+  const existing = document.querySelectorAll('.floating-xp');
+  if (existing.length >= 3) existing[0].remove();
+
   const el = document.createElement('div');
   el.className =
     'floating-xp px-3 py-1 rounded-full bg-[#EFE078] text-[#111111] border-2 border-[#141414] font-mono text-xs font-extrabold shadow-[2px_2px_0px_#141414]';
@@ -45,6 +48,9 @@ export function spawnFloatingXP(amount: number, coords?: { clientX?: number; cli
 }
 
 export function spawnConfetti(coords?: { clientX?: number; clientY?: number } | null, count = 14): void {
+  const existing = document.querySelectorAll('.confetti-piece');
+  if (existing.length >= 24) return;
+
   const colors = ['#F4C2D7', '#EFE078', '#CBEAD8', '#DCD2F5', '#141414'];
   const symbols = ['✦', '★', '♥', '●', '✿'];
   const cx = coords?.clientX ? coords.clientX : window.innerWidth / 2;

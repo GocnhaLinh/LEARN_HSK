@@ -156,38 +156,43 @@ export const HomePage: React.FC = () => {
   return (
     <section className="space-y-7">
       {/* Metadata Strip & Daily Check-in */}
-      <div className="t-card-flat px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] sm:text-xs">
-          <span className="px-2.5 py-1 bg-[#111111] text-white font-semibold rounded-[4px] flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-[#F4C2D7]" />
+      <div className="t-card-flat px-3.5 sm:px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
+        <div className="flex items-center justify-between lg:justify-start gap-2 font-mono text-[10px] sm:text-xs min-w-0">
+          <span className="px-2 sm:px-2.5 py-1 bg-[#111111] text-white font-semibold rounded-[4px] inline-flex items-center gap-1.5 whitespace-nowrap">
+            <Calendar className="w-3.5 h-3.5 text-[#F4C2D7] shrink-0" />
             <span>{clock.dateStr}</span>
           </span>
-          <span className="px-2.5 py-1 bg-[#EFE078] text-[#111111] font-bold t-badge flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5" />
+          <span className="px-2 sm:px-2.5 py-1 bg-[#EFE078] text-[#111111] font-bold t-badge inline-flex items-center gap-1.5 whitespace-nowrap shrink-0">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
             <span>{clock.timeStr}</span>
           </span>
-          <span className="px-2.5 py-1 bg-[#F4C2D7] text-[#111111] font-bold t-badge">
+          <span className="hidden lg:inline-block px-2.5 py-1 bg-[#F4C2D7] text-[#111111] font-bold t-badge whitespace-nowrap shrink-0">
             ISSUE #3.0 ✨
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={(e) => performDailyCheckin({ clientX: e.clientX, clientY: e.clientY })}
-          className={`t-btn px-3.5 py-1.5 text-[#111111] text-xs font-semibold flex items-center gap-1.5 hover:bg-[#EFE078] ${
-            checkedToday ? 'bg-[#CBEAD8]' : 'bg-white'
-          }`}
-        >
-          <CheckCircle2 className="w-4 h-4" />
-          <span>{checkedToday ? 'Đã điểm danh hôm nay ✓' : 'Điểm danh hôm nay (+15 XP)'}</span>
-        </button>
+        <div className="flex items-center justify-between lg:justify-end gap-2">
+          <span className="lg:hidden px-2.5 py-1 bg-[#F4C2D7] text-[#111111] font-mono text-[10px] sm:text-xs font-bold t-badge whitespace-nowrap shrink-0">
+            ISSUE #3.0 ✨
+          </span>
+          <button
+            type="button"
+            onClick={(e) => performDailyCheckin({ clientX: e.clientX, clientY: e.clientY })}
+            className={`t-btn px-2.5 sm:px-3.5 py-1.5 text-[#111111] text-[11px] sm:text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 hover:bg-[#EFE078] ${
+              checkedToday ? 'bg-[#CBEAD8]' : 'bg-white'
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>{checkedToday ? 'Đã điểm danh hôm nay ✓' : 'Điểm danh hôm nay (+15 XP)'}</span>
+          </button>
+        </div>
       </div>
 
       {/* 7-Day Streak Check-in Strip */}
       <div className="t-card p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-[#EFE078] text-[#111111] t-badge">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase bg-[#EFE078] text-[#111111] t-badge whitespace-nowrap shrink-0">
               DAILY STREAK CHECK-IN
             </span>
             <span className="text-sm sm:text-base font-bold">
@@ -215,15 +220,19 @@ export const HomePage: React.FC = () => {
       {/* Editorial Hero: 2-Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Left Hero Card */}
-        <div className="lg:col-span-7 t-card p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden">
+        <div className="lg:col-span-7 t-card p-5 sm:p-8 flex flex-col justify-between relative overflow-hidden">
           <div>
-            <div className="flex flex-wrap items-center gap-3 mb-3">
-              <h1 className="font-serif font-extrabold text-4xl sm:text-5xl tracking-tight leading-none">
+            <div className="flex items-center justify-between sm:justify-start flex-nowrap gap-2 sm:gap-3 mb-3">
+              <h1 className="font-serif font-extrabold text-[26px] sm:text-5xl tracking-tight leading-none whitespace-nowrap">
                 HSK <span className="font-normal">(QUEST)</span>
               </h1>
-              <div className="px-4 py-2 rounded-full bg-[#F4C2D7] text-[#111111] border-2 border-[#141414] inline-flex flex-col items-center leading-tight">
-                <span className="font-serifcn text-lg sm:text-xl font-bold tracking-widest">〔 汉 · 语 〕</span>
-                <span className="font-mono text-[10px] font-bold">CHUẨN 3.0 • 1–6</span>
+              <div className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full bg-[#F4C2D7] text-[#111111] border-2 border-[#141414] inline-flex flex-col items-center leading-tight shrink-0">
+                <span className="font-serifcn text-sm sm:text-xl font-bold tracking-wider sm:tracking-widest whitespace-nowrap">
+                  〔 汉 · 语 〕
+                </span>
+                <span className="font-mono text-[8px] sm:text-[10px] font-bold whitespace-nowrap">
+                  CHUẨN 3.0 • 1–6
+                </span>
               </div>
             </div>
 
@@ -238,22 +247,27 @@ export const HomePage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 mt-7 pt-5 border-t border-dashed border-current/25">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 mt-6 sm:mt-7 pt-5 border-t border-dashed border-current/25">
             <button
               type="button"
               onClick={() => navigate(`/courses/${profile.focusLevel}`)}
-              className="t-btn-black px-5 py-3 text-xs sm:text-sm font-mono font-bold tracking-wide flex items-center gap-2"
+              className="t-btn-black px-2.5 sm:px-5 py-2.5 sm:py-3 text-[11px] sm:text-sm font-mono font-bold tracking-wide flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
             >
-              <GraduationCap className="w-4 h-4" />
-              <span>VÀO KHÓA HSK {profile.focusLevel} NGAY</span>
+              <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>
+                VÀO KHÓA HSK {profile.focusLevel}
+                <span className="hidden sm:inline"> NGAY</span>
+              </span>
             </button>
             <button
               type="button"
               onClick={() => navigate(`/flashcard/hsk${profile.focusLevel}`)}
-              className="t-btn px-5 py-3 bg-[#EFE078] text-[#111111] text-xs sm:text-sm font-mono font-bold tracking-wide flex items-center gap-2 hover:brightness-95"
+              className="t-btn px-2.5 sm:px-5 py-2.5 sm:py-3 bg-[#EFE078] text-[#111111] text-[11px] sm:text-sm font-mono font-bold tracking-wide flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap hover:brightness-95"
             >
-              <Play className="w-4 h-4 fill-current" />
-              <span>HỌC FLASHCARD NGAY</span>
+              <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current shrink-0" />
+              <span>
+                HỌC FLASHCARD<span className="hidden sm:inline"> NGAY</span>
+              </span>
             </button>
           </div>
         </div>
@@ -348,11 +362,13 @@ export const HomePage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-1.5 font-mono text-[11px]">
-              <span>
-                Từ tải từ file / cá nhân: <strong>{stats.customCount}</strong> từ
+            <div className="flex items-center justify-between gap-2 pt-1.5 font-mono text-[10px] sm:text-[11px]">
+              <span className="whitespace-nowrap truncate">
+                <span className="hidden sm:inline">Từ tải từ file / cá nhân</span>
+                <span className="sm:hidden">Từ file / cá nhân</span>:{' '}
+                <strong>{stats.customCount}</strong> từ
               </span>
-              <span className="px-2 py-0.5 bg-[#EFE078] text-[#111111] font-bold t-badge text-[10px]">
+              <span className="px-2 py-0.5 bg-[#EFE078] text-[#111111] font-bold t-badge text-[10px] whitespace-nowrap shrink-0">
                 加油 • CỐ LÊN!
               </span>
             </div>
