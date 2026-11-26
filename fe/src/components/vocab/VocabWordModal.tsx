@@ -1,7 +1,8 @@
 import { X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { VocabFormInput } from '../../context/AppContext';
-import { VocabStatus, VocabWord } from '../../types';
+import { VocabFormInput } from '@/context/AppContext';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
+import { VocabStatus, VocabWord } from '@/types';
 
 interface VocabWordModalProps {
   open: boolean;
@@ -56,14 +57,7 @@ export const VocabWordModal: React.FC<VocabWordModalProps> = ({
     }
   }, [open, editingWord, defaultLevel]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  useEscapeKey(open, onClose);
 
   if (!open) return null;
 

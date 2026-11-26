@@ -1,18 +1,9 @@
 import { ArrowUp } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { useScrollPast } from '@/hooks/useScrollPast';
 
 export const ScrollToTopButton: React.FC = () => {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => {
-      const next = window.scrollY > 180;
-      setVisible((prev) => (prev === next ? prev : next));
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  const visible = useScrollPast(180);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });

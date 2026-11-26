@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import React from 'react';
-import { useToasts } from '../context/AppContext';
+import { useToastStore } from '@/stores/toast.store';
 
 const VARIANT_STYLES = {
   dark: 'bg-[#111111] text-white border-[#111111]',
@@ -9,7 +9,8 @@ const VARIANT_STYLES = {
 };
 
 export const ToastContainer: React.FC = () => {
-  const { toasts, dismissToast } = useToasts();
+  const toasts = useToastStore((s) => s.toasts);
+  const dismissToast = useToastStore((s) => s.dismissToast);
 
   if (!toasts.length) return null;
 

@@ -1,8 +1,8 @@
 import { Disc3, Flame, Sparkles } from 'lucide-react';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
-import { preloadRoute } from '../routes/lazyPages';
+import { useApp } from '@/context/AppContext';
+import { preloadRoute } from '@/routes/lazyPages';
 
 const NAV_ITEMS = [
   { to: '/', num: '[01]', label: 'Trang chủ', end: true },
@@ -90,7 +90,8 @@ export const Navbar: React.FC = () => {
     } else {
       try {
         const AudioCtx =
-          window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
         if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
         setCdPlaying(true);
@@ -115,7 +116,6 @@ export const Navbar: React.FC = () => {
   return (
     <header className="sticky top-0 z-40 t-navbar">
       <div className="max-w-[1400px] mx-auto px-3 sm:px-5 h-16 flex items-center justify-between gap-3">
-        {/* Left: Brand + Live LV/XP + Streak */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           <Link
             to="/"
@@ -144,7 +144,6 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
 
-        {/* Center: Desktop 7-Module Navigation with smooth sliding pill */}
         <nav
           ref={navRef}
           aria-label="Điều hướng chính"
@@ -182,7 +181,6 @@ export const Navbar: React.FC = () => {
           ))}
         </nav>
 
-        {/* Right: Theme Switcher & Spinning CD Audio Button */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"

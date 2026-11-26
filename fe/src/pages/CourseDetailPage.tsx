@@ -13,13 +13,15 @@ import {
   Trophy,
   Volume2,
 } from 'lucide-react';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
-import { COURSES_META } from '../data/defaults';
-import { ExtractedExerciseRow, ExtractedVocabRow, VocabWord } from '../types';
-import { parseCourseFile } from '../utils/docParser';
-import { normalizeSearch, speakChinese } from '../utils/helpers';
+import { useApp } from '@/context/AppContext';
+import { COURSES_META } from '@/data/defaults';
+import { useScrollPast } from '@/hooks/useScrollPast';
+import { ExtractedExerciseRow, ExtractedVocabRow, VocabWord } from '@/types';
+import { parseCourseFile } from '@/utils/docParser';
+import { normalizeSearch } from '@/lib/search-utils';
+import { speakChinese } from '@/lib/speech-utils';
 
 export const CourseDetailPage: React.FC = () => {
   const { level: levelParam } = useParams();
@@ -48,18 +50,8 @@ export const CourseDetailPage: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewCardRef = useRef<HTMLDivElement | null>(null);
-  const [scrolledDown, setScrolledDown] = useState(false);
+  const scrolledDown = useScrollPast(180);
   const [loadingText, setLoadingText] = useState<string | null>(null);
-
-  useEffect(() => {
-    const onScroll = () => {
-      const next = window.scrollY > 180;
-      setScrolledDown((prev) => (prev === next ? prev : next));
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   const [extractedPreview, setExtractedPreview] = useState<ExtractedVocabRow[]>([]);
   const [extractedExercises, setExtractedExercises] = useState<ExtractedExerciseRow[]>([]);

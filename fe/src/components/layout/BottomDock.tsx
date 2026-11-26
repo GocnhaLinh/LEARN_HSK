@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { preloadRoute } from '../routes/lazyPages';
+import { preloadRoute } from '@/routes/lazyPages';
 
 const DOCK_ITEMS = [
   { to: '/', label: 'Trang chủ', Icon: Home, end: true },
@@ -37,7 +37,6 @@ export const BottomDock: React.FC = () => {
         className="pointer-events-auto max-w-2xl mx-auto bg-[#111111]/95 text-[#D6D3D1] backdrop-blur-md border border-neutral-700 rounded-2xl p-1.5 shadow-[0_14px_36px_rgba(0,0,0,0.34)]"
       >
         <div className="relative grid grid-cols-7">
-          {/* Smooth sliding yellow active highlight */}
           <span
             aria-hidden="true"
             className="pointer-events-none absolute top-0 bottom-0 left-0 rounded-xl bg-[#EFE078] transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
