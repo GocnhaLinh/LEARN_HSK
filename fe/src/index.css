@@ -1,0 +1,341 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================================
+   1. THEME SYSTEM: [data-theme="zine"] (Default) & [data-theme="diary"]
+   ========================================================================= */
+:root,
+[data-theme="zine"] {
+  --bg-page: #F8F6F1;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #EFECE4;
+  --text-main: #141414;
+  --text-muted: #57534E;
+  --border-color: #141414;
+  --border-width: 1.5px;
+  --radius-card: 8px;
+  --radius-btn: 6px;
+  --radius-badge: 4px;
+  --shadow-card: 4px 4px 0px #141414;
+  --shadow-btn: 2px 2px 0px #141414;
+  --nav-bg: #111111;
+  --nav-text: #F8F6F1;
+  --banner-bg: #111111;
+  --banner-text: #F8F6F1;
+  --accent-pink: #F4C2D7;
+  --accent-yellow: #EFE078;
+  --accent-mint: #CBEAD8;
+  --accent-lav: #DCD2F5;
+}
+
+[data-theme="diary"] {
+  --bg-page: #F7EEF5;
+  --bg-surface: #FFFDFE;
+  --bg-subtle: #F3E5F0;
+  --text-main: #2A1F2D;
+  --text-muted: #6E5D73;
+  --border-color: #D8BED5;
+  --border-width: 1.5px;
+  --radius-card: 24px;
+  --radius-btn: 9999px;
+  --radius-badge: 9999px;
+  --shadow-card: 0 10px 28px rgba(114, 72, 118, 0.09);
+  --shadow-btn: 0 4px 12px rgba(42, 31, 45, 0.10);
+  --nav-bg: #FFFFFF;
+  --nav-text: #2A1F2D;
+  --banner-bg: #2A1F2D;
+  --banner-text: #FFFDFE;
+  --accent-pink: #F7CBE0;
+  --accent-yellow: #F9EB9B;
+  --accent-mint: #D4F0E2;
+  --accent-lav: #E4D7FA;
+}
+
+body {
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Core Theme Utility Classes with Cute Squishy / Jelly Interactions */
+.t-card {
+  background-color: var(--bg-surface);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, background-color 0.25s ease, border-radius 0.25s ease;
+}
+
+.t-card-hover:hover {
+  transform: translateY(-4px) scale(1.01);
+}
+
+.t-card-flat {
+  background-color: var(--bg-surface);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-card);
+  transition: all 0.22s ease;
+}
+
+.t-btn {
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-btn);
+  box-shadow: var(--shadow-btn);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, background-color 0.15s ease;
+}
+
+.t-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.t-btn:active {
+  transform: scale(0.95);
+  box-shadow: none;
+}
+
+.t-btn-black {
+  background-color: #111111;
+  color: #FFFFFF;
+  border: var(--border-width) solid #111111;
+  border-radius: var(--radius-btn);
+  box-shadow: var(--shadow-btn);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, background-color 0.15s ease;
+}
+
+.t-btn-black:hover {
+  background-color: #292524;
+  transform: translateY(-2px) scale(1.02);
+}
+
+.t-btn-black:active {
+  transform: scale(0.95);
+  box-shadow: none;
+}
+
+.t-badge {
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-badge);
+}
+
+.t-navbar {
+  background-color: var(--nav-bg);
+  color: var(--nav-text);
+  border-bottom: var(--border-width) solid var(--border-color);
+}
+
+.t-banner {
+  background-color: var(--banner-bg);
+  color: var(--banner-text);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-card);
+}
+
+/* Navbar Tabs per Theme */
+[data-theme="diary"] .nav-tab-btn {
+  border-color: #D8BED5;
+  color: #5E4B63;
+  border-radius: 9999px;
+}
+[data-theme="diary"] .nav-tab-btn.is-active {
+  background-color: #2A1F2D;
+  color: #FFFFFF;
+  border-color: #2A1F2D;
+}
+[data-theme="zine"] .nav-tab-btn {
+  border-color: #333333;
+  color: #D6D3D1;
+  border-radius: 4px;
+}
+[data-theme="zine"] .nav-tab-btn:hover {
+  border-color: #EFE078;
+  color: #FFFFFF;
+}
+[data-theme="zine"] .nav-tab-btn.is-active {
+  background-color: #F4C2D7;
+  color: #111111;
+  border-color: #F4C2D7;
+  font-weight: 700;
+}
+
+/* =========================================================================
+   2. CUTE ANIMATIONS & MICRO-INTERACTIONS
+   ========================================================================= */
+@keyframes tabPopIn {
+  0% { opacity: 0; transform: translateY(16px) scale(0.985); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.module-animate {
+  animation: tabPopIn 0.36s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-7px) rotate(2deg); }
+}
+.animate-float-y {
+  animation: floatY 3s ease-in-out infinite;
+}
+
+@keyframes jellyPop {
+  0% { transform: scale(1, 1); }
+  25% { transform: scale(1.22, 0.82); }
+  50% { transform: scale(0.86, 1.16); }
+  75% { transform: scale(1.06, 0.96); }
+  100% { transform: scale(1, 1); }
+}
+.jelly-pop {
+  animation: jellyPop 0.52s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spin-cd {
+  animation: spinSlow 3s linear infinite;
+}
+
+/* Musical Notes floating around CD Button */
+@keyframes musicNoteFloat {
+  0% { opacity: 0; transform: translate(0, 4px) scale(0.7) rotate(-10deg); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--nx, 10px), -26px) scale(1.15) rotate(14deg); }
+}
+.music-note {
+  position: absolute;
+  pointer-events: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: #F4C2D7;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  animation: musicNoteFloat 1.8s ease-out forwards;
+}
+
+/* Shimmer Progress Bar */
+.shimmer-bar {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.58) 48%,
+    transparent 76%
+  );
+  transform: translateX(-100%);
+  animation: shimmerSweep 2.4s ease-in-out infinite;
+}
+@keyframes shimmerSweep {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(130%); }
+}
+
+/* Floating +XP Rising Text */
+@keyframes floatUpXp {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.8); }
+  20% { opacity: 1; transform: translate(-50%, -8px) scale(1.08); }
+  100% { opacity: 0; transform: translate(-50%, -62px) scale(0.98); }
+}
+.floating-xp {
+  position: fixed;
+  z-index: 90;
+  pointer-events: none;
+  animation: floatUpXp 1.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Mini Confetti / Sparkle Particles */
+@keyframes confettiBurst {
+  0% { opacity: 1; transform: translate(0, 0) scale(1) rotate(0deg); }
+  100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0.4) rotate(var(--rot)); }
+}
+.confetti-piece {
+  position: fixed;
+  z-index: 88;
+  pointer-events: none;
+  animation: confettiBurst 0.95s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 3D Flashcard Flip */
+.perspective-1200 {
+  perspective: 1200px;
+}
+.flip-inner {
+  position: relative;
+  width: 100%;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-style: preserve-3d;
+}
+.flip-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+.flip-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
+
+/* Traditional Mi-Zi-Ge (米字格) Grid */
+.mizige-grid {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  background-color: #FFFEFA;
+  border: 2px solid #141414;
+  touch-action: none;
+  user-select: none;
+}
+.mizige-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, transparent calc(50% - 0.5px), #D4CFC7 calc(50% - 0.5px), #D4CFC7 calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(50% - 0.5px), #D4CFC7 calc(50% - 0.5px), #D4CFC7 calc(50% + 0.5px), transparent calc(50% + 0.5px));
+  background-size: 100% 10px, 10px 100%;
+}
+.mizige-grid::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(45deg, transparent calc(50% - 0.5px), rgba(212, 207, 199, 0.55) 50%, transparent calc(50% + 0.5px)),
+    linear-gradient(-45deg, transparent calc(50% - 0.5px), rgba(212, 207, 199, 0.55) 50%, transparent calc(50% + 0.5px));
+}
+
+/* Toast Enter */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast-in {
+  animation: toastIn 0.24s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Stamp Sticker */
+.stamp-sticker {
+  border: 2px dashed #141414;
+  box-shadow: 2px 2px 0px #141414;
+}
+
+/* Drag-drop Zone active state */
+.dropzone-active {
+  background-color: #EFE078 !important;
+  border-style: solid !important;
+  transform: scale(1.01);
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #B8B2A8; border-radius: 9999px; }

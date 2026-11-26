@@ -1,0 +1,14 @@
+{
+  "name": "hsk-quest-3.0-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HSK (QUEST) 3.0 — Personal Mandarin Zine (React + Vite FE & NestJS + MongoDB BE)",
+  "scripts": {
+    "install:all": "npm --prefix be install && npm --prefix fe install",
+    "dev:be": "npm --prefix be run start:dev",
+    "dev:fe": "npm --prefix fe run dev",
+    "build:be": "npm --prefix be run build",
+    "build:fe": "npm --prefix fe run build",
+    "build": "npm run build:be && npm run build:fe"
+  }
+}
