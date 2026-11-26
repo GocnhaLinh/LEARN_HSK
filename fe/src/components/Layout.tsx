@@ -15,7 +15,7 @@ export const Layout: React.FC = () => {
   return (
     <>
       <Navbar />
-      <main className="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 pt-5 sm:pt-8 pb-36">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 pt-5 sm:pt-8 pb-28 xl:pb-16">
         <div key={pathname} className="module-animate">
           <Outlet />
         </div>

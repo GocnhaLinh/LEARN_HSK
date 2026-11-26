@@ -4,13 +4,13 @@ import { Link, NavLink } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
 const NAV_ITEMS = [
-  { to: '/', label: '[01] Trang chủ', end: true },
-  { to: '/courses', label: '[02] Khóa học', end: false },
-  { to: '/flashcard', label: '[03] Flashcard', end: false },
-  { to: '/writing', label: '[04] Luyện viết', end: false },
-  { to: '/game', label: '[05] Mini-Game', end: false },
-  { to: '/vocab', label: '[06] Kho từ', end: false },
-  { to: '/notes', label: '[07] MindNotes', end: false },
+  { to: '/', num: '[01]', label: 'Trang chủ', end: true },
+  { to: '/courses', num: '[02]', label: 'Khóa học', end: false },
+  { to: '/flashcard', num: '[03]', label: 'Flashcard', end: false },
+  { to: '/writing', num: '[04]', label: 'Luyện viết', end: false },
+  { to: '/game', num: '[05]', label: 'Mini-Game', end: false },
+  { to: '/vocab', num: '[06]', label: 'Kho từ', end: false },
+  { to: '/notes', num: '[07]', label: 'MindNotes', end: false },
 ];
 
 export const Navbar: React.FC = () => {
@@ -88,12 +88,12 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 t-navbar">
-      <div className="max-w-7xl mx-auto px-3 sm:px-5 h-16 flex items-center justify-between gap-2">
+      <div className="max-w-[1400px] mx-auto px-3 sm:px-5 h-16 flex items-center justify-between gap-3">
         {/* Left: Brand + Live LV/XP + Streak */}
-        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           <Link
             to="/"
-            className="flex items-center gap-1.5 text-left shrink-0 hover:opacity-85 transition"
+            className="flex items-center gap-1.5 text-left shrink-0 whitespace-nowrap hover:opacity-85 transition"
           >
             <span className="font-serif italic font-bold text-base sm:text-lg tracking-tight">
               HSK <span className="not-italic">(QUEST)</span>{' '}
@@ -101,16 +101,16 @@ export const Navbar: React.FC = () => {
             </span>
           </Link>
 
-          <div className="hidden sm:flex items-center gap-1.5 font-mono text-[11px]">
+          <div className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] shrink-0">
             <span
-              className="px-2 py-0.5 rounded bg-[#EFE078] text-[#111111] font-bold border border-[#111111] flex items-center gap-1"
+              className="px-2 py-0.5 rounded bg-[#EFE078] text-[#111111] font-bold border border-[#111111] inline-flex items-center gap-1 whitespace-nowrap shrink-0"
               title="Chuỗi ngày điểm danh liên tiếp"
             >
-              <Flame className="w-3 h-3" />
+              <Flame className="w-3 h-3 shrink-0" />
               <span>{profile.streak}d</span>
             </span>
             <span
-              className="px-2 py-0.5 rounded bg-[#F4C2D7] text-[#111111] font-bold border border-[#111111]"
+              className="px-2 py-0.5 rounded bg-[#F4C2D7] text-[#111111] font-bold border border-[#111111] whitespace-nowrap shrink-0"
               title="Cấp độ & Điểm kinh nghiệm"
             >
               LV.{level} • {profile.xp} XP
@@ -118,18 +118,24 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
 
-        {/* Center: Desktop 7-Module Navigation */}
-        <nav aria-label="Điều hướng chính" className="hidden xl:flex items-center gap-1 font-mono text-[11px]">
+        {/* Center: Desktop 7-Module Navigation (single-line, no wrapping) */}
+        <nav
+          aria-label="Điều hướng chính"
+          className="hidden xl:flex items-center justify-center gap-1 2xl:gap-1.5 font-mono text-[11px] min-w-0"
+        >
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `nav-tab-btn px-2.5 py-1.5 border transition ${isActive ? 'is-active' : ''}`
+                `nav-tab-btn px-2.5 py-1.5 border transition whitespace-nowrap shrink-0 inline-flex items-center gap-1 ${
+                  isActive ? 'is-active' : ''
+                }`
               }
             >
-              {item.label}
+              <span className="hidden 2xl:inline opacity-75">{item.num}</span>
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
@@ -139,21 +145,21 @@ export const Navbar: React.FC = () => {
           <button
             type="button"
             onClick={toggleTheme}
-            className="px-2.5 py-1.5 rounded border border-current/30 text-[11px] font-mono font-semibold flex items-center gap-1.5 hover:scale-105 active:scale-95 transition"
+            className="px-2.5 py-1.5 rounded border border-current/30 text-[11px] font-mono font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 hover:scale-105 active:scale-95 transition"
             title="Đổi giao diện Editorial Zine / Pastel Diary"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
             <span>{profile.theme === 'zine' ? 'Zine' : 'Pastel'}</span>
           </button>
 
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               type="button"
               onClick={toggleCDPlayer}
-              className="px-2.5 py-1.5 rounded bg-[#EFE078] text-[#111111] border border-[#111111] text-[11px] font-mono font-bold flex items-center gap-1.5 hover:brightness-95 active:scale-95 transition"
+              className="px-2.5 py-1.5 rounded bg-[#EFE078] text-[#111111] border border-[#111111] text-[11px] font-mono font-bold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 hover:brightness-95 active:scale-95 transition"
               title="Bật/Tắt nhạc nền học tập Lo-fi Ngũ Cung"
             >
-              <Disc3 className={`w-3.5 h-3.5 ${cdPlaying ? 'spin-cd' : ''}`} />
+              <Disc3 className={`w-3.5 h-3.5 shrink-0 ${cdPlaying ? 'spin-cd' : ''}`} />
               <span className="hidden sm:inline">Đĩa CD</span>
             </button>
             <div ref={notesLayerRef} className="pointer-events-none absolute inset-0 overflow-visible" />

@@ -22,7 +22,7 @@ const DOCK_ITEMS = [
 
 export const BottomDock: React.FC = () => {
   return (
-    <div className="fixed bottom-3.5 inset-x-0 z-40 px-2.5 pointer-events-none">
+    <div className="xl:hidden fixed bottom-3.5 inset-x-0 z-40 px-2.5 pointer-events-none">
       <nav
         aria-label="Thanh điều hướng nhanh"
         className="pointer-events-auto max-w-2xl mx-auto bg-[#111111]/95 text-[#D6D3D1] backdrop-blur-md border border-neutral-700 rounded-2xl px-1.5 py-1.5 shadow-[0_14px_36px_rgba(0,0,0,0.34)]"
