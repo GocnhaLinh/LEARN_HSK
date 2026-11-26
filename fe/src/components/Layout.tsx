@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { BottomDock } from './BottomDock';
-import { MascotWidget } from './MascotWidget';
 import { Navbar } from './Navbar';
+import { ScrollToTopButton } from './ScrollToTopButton';
 import { ToastContainer } from './ToastContainer';
 
 function getPageTransitionKey(pathname: string): string {
@@ -28,7 +28,7 @@ export const Layout: React.FC = () => {
           <Outlet />
         </div>
       </main>
-      <MascotWidget />
+      <ScrollToTopButton />
       <BottomDock />
       <ToastContainer />
     </>

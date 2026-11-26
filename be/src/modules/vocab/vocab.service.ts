@@ -34,6 +34,7 @@ export class VocabService {
         list = await this.hskCollections
           .getModel(lv)
           .find(filter)
+          .select('-_id -__v')
           .sort({ order: 1, createdAt: -1 })
           .lean()
           .exec();
@@ -43,7 +44,7 @@ export class VocabService {
     } else {
       const perLevel = await Promise.all(
         this.hskCollections.getAllModels().map(({ model }) =>
-          model.find(filter).sort({ order: 1, createdAt: -1 }).lean().exec(),
+          model.find(filter).select('-_id -__v').sort({ order: 1, createdAt: -1 }).lean().exec(),
         ),
       );
       list = perLevel.flat();
@@ -127,11 +128,73 @@ export class VocabService {
     if (!found) {
       throw new NotFoundException(`Vocab word "${id}" not found`);
     }
+
+    const cleanPatch: Record<string, any> = { ...dto };
+    if (typeof cleanPatch.hanzi === 'string') cleanPatch.hanzi = cleanPatch.hanzi.trim();
+    if (typeof cleanPatch.pinyin === 'string') cleanPatch.pinyin = cleanPatch.pinyin.trim();
+    if (typeof cleanPatch.hanviet === 'string') {
+      cleanPatch.hanviet = cleanPatch.hanviet.trim().toUpperCase();
+    }
+    if (typeof cleanPatch.meaning === 'string') cleanPatch.meaning = cleanPatch.meaning.trim();
+    if (typeof cleanPatch.english === 'string') cleanPatch.english = cleanPatch.english.trim();
+    if (typeof cleanPatch.pos === 'string') cleanPatch.pos = cleanPatch.pos.trim();
+    if (typeof cleanPatch.note === 'string') cleanPatch.note = cleanPatch.note.trim();
+    if (typeof cleanPatch.exampleZh === 'string') cleanPatch.exampleZh = cleanPatch.exampleZh.trim();
+    if (typeof cleanPatch.exampleVi === 'string') cleanPatch.exampleVi = cleanPatch.exampleVi.trim();
+
+    // Move document across HSK1..HSK6 collections cleanly if level changed
+    if (dto.level && dto.level !== found.level) {
+      const targetModel = this.hskCollections.getModel(dto.level);
+      const { _id, __v, ...rest } = found.doc;
+      const merged = {
+        ...rest,
+        ...cleanPatch,
+        category: 'vocab',
+        level: dto.level,
+      };
+      await targetModel.findOneAndUpdate({ id }, { $set: merged }, { upsert: true }).exec();
+      await found.model.deleteOne({ id, category: 'vocab' }).exec();
+      return merged;
+    }
+
     const updated = await found.model
-      .findOneAndUpdate({ id, category: 'vocab' }, { $set: dto }, { new: true })
+      .findOneAndUpdate({ id, category: 'vocab' }, { $set: cleanPatch }, { new: true })
+      .select('-_id -__v')
       .lean()
       .exec();
     return updated;
+  }
+
+  async batchUpdateStatus(ids: string[], status: 'mastered' | 'learning' | 'review' | 'new') {
+    const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+    if (!uniqueIds.length) return { updatedCount: 0, status };
+
+    const results = await Promise.all(
+      this.hskCollections
+        .getAllModels()
+        .map(({ model }) =>
+          model
+            .updateMany({ id: { $in: uniqueIds }, category: 'vocab' }, { $set: { status } })
+            .exec(),
+        ),
+    );
+    const updatedCount = results.reduce((sum, r) => sum + (r.modifiedCount || 0), 0);
+    return { updatedCount, status };
+  }
+
+  async batchRemove(ids: string[]) {
+    const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+    if (!uniqueIds.length) return { deletedCount: 0 };
+
+    const results = await Promise.all(
+      this.hskCollections
+        .getAllModels()
+        .map(({ model }) =>
+          model.deleteMany({ id: { $in: uniqueIds }, category: 'vocab' }).exec(),
+        ),
+    );
+    const deletedCount = results.reduce((sum, r) => sum + (r.deletedCount || 0), 0);
+    return { deletedCount };
   }
 
   async updateStatus(id: string, dto: UpdateVocabStatusDto) {

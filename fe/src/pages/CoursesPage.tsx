@@ -1,18 +1,39 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { COURSES_META } from '../data/defaults';
 import { CourseMeta } from '../types';
 
+const INTER_COURSES = COURSES_META.filter((c) => c.tier === 'intermediate');
+const PRIM_COURSES = COURSES_META.filter((c) => c.tier === 'primary');
+
 export const CoursesPage: React.FC = () => {
   const navigate = useNavigate();
   const { lessons, vocab } = useApp();
 
+  // Pre-aggregate counts across HSK 1-6 in one O(N) pass
+  const levelStats = useMemo(() => {
+    const map = new Map<number, { lessons: number; words: number; mastered: number }>();
+    for (let lv = 1; lv <= 6; lv++) {
+      map.set(lv, { lessons: 0, words: 0, mastered: 0 });
+    }
+    for (const l of lessons) {
+      const s = map.get(l.level);
+      if (s) s.lessons++;
+    }
+    for (const w of vocab) {
+      const s = map.get(w.level);
+      if (s) {
+        s.words++;
+        if (w.status === 'mastered') s.mastered++;
+      }
+    }
+    return map;
+  }, [lessons, vocab]);
+
   const renderCard = (course: CourseMeta) => {
-    const courseLessons = lessons.filter((l) => l.level === course.level);
-    const courseWords = vocab.filter((w) => w.level === course.level);
-    const masteredCount = courseWords.filter((w) => w.status === 'mastered').length;
-    const pct = courseWords.length ? Math.round((masteredCount / courseWords.length) * 100) : 0;
+    const st = levelStats.get(course.level) || { lessons: 0, words: 0, mastered: 0 };
+    const pct = st.words ? Math.round((st.mastered / st.words) * 100) : 0;
 
     return (
       <div
@@ -37,11 +58,11 @@ export const CoursesPage: React.FC = () => {
           <div className="grid grid-cols-2 gap-2 mt-4 font-mono text-xs">
             <div className="p-2.5 rounded-lg bg-[#F8F6F1] border border-[#141414]/20">
               <div className="opacity-65 text-[10px]">SỐ BÀI HỌC</div>
-              <div className="font-bold text-base mt-0.5">{courseLessons.length} bài</div>
+              <div className="font-bold text-base mt-0.5">{st.lessons} bài</div>
             </div>
             <div className="p-2.5 rounded-lg bg-[#F8F6F1] border border-[#141414]/20">
               <div className="opacity-65 text-[10px]">TỪ VỰNG</div>
-              <div className="font-bold text-base mt-0.5">{courseWords.length} từ</div>
+              <div className="font-bold text-base mt-0.5">{st.words} từ</div>
             </div>
           </div>
         </div>
@@ -50,7 +71,7 @@ export const CoursesPage: React.FC = () => {
           <div>
             <div className="flex justify-between font-mono text-[11px] font-bold mb-1">
               <span>
-                Hoàn thành ({masteredCount}/{courseWords.length})
+                Hoàn thành ({st.mastered}/{st.words})
               </span>
               <span>{pct}%</span>
             </div>
@@ -73,9 +94,6 @@ export const CoursesPage: React.FC = () => {
       </div>
     );
   };
-
-  const interCourses = COURSES_META.filter((c) => c.tier === 'intermediate');
-  const primCourses = COURSES_META.filter((c) => c.tier === 'primary');
 
   return (
     <section className="space-y-7">
@@ -110,7 +128,7 @@ export const CoursesPage: React.FC = () => {
           </div>
           <span className="font-mono text-xs opacity-70">Trọng tâm: HSK 5 (NEW HSK 3.0)</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">{interCourses.map(renderCard)}</div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">{INTER_COURSES.map(renderCard)}</div>
       </div>
 
       {/* Group 2: Sơ cấp (HSK 1-3) */}
@@ -126,7 +144,7 @@ export const CoursesPage: React.FC = () => {
           </div>
           <span className="font-mono text-xs opacity-70">Nền tảng giao tiếp &amp; từ vựng cốt lõi</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">{primCourses.map(renderCard)}</div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">{PRIM_COURSES.map(renderCard)}</div>
       </div>
     </section>
   );

@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import React from 'react';
-import { useApp } from '../context/AppContext';
+import { useToasts } from '../context/AppContext';
 
 const VARIANT_STYLES = {
   dark: 'bg-[#111111] text-white border-[#111111]',
@@ -9,7 +9,7 @@ const VARIANT_STYLES = {
 };
 
 export const ToastContainer: React.FC = () => {
-  const { toasts, dismissToast } = useApp();
+  const { toasts, dismissToast } = useToasts();
 
   if (!toasts.length) return null;
 

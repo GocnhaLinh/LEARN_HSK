@@ -33,6 +33,17 @@ export const api = {
   health: () =>
     request<{ status: string; service: string; mongodb: string; timestamp: string }>('/health'),
 
+  bootstrap: () =>
+    request<{
+      profile: UserProfile;
+      lessons: Lesson[];
+      vocab: VocabWord[];
+      exercises: ExerciseItem[];
+      scores: { byLevel: LevelScoreSummary[]; history: ScoreHistoryItem[] };
+      notes: MindNote[];
+      handwriting: HandwritingItem[];
+    }>('/bootstrap'),
+
   // Profile & Progress
   getProfile: () => request<UserProfile>('/profile'),
   updateProfile: (payload: Partial<{ theme: ThemeMode; focusLevel: number; dailyTarget: number }>) =>
@@ -101,9 +112,12 @@ export const api = {
     hanzi: string;
     pinyin: string;
     hanviet?: string;
+    english?: string;
     meaning: string;
     pos?: string;
     level: number;
+    lessonId?: string;
+    note?: string;
     exampleZh?: string;
     exampleVi?: string;
   }) =>
@@ -111,13 +125,43 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  updateVocab: (
+    id: string,
+    payload: Partial<{
+      hanzi: string;
+      pinyin: string;
+      hanviet: string;
+      english: string;
+      meaning: string;
+      pos: string;
+      level: number;
+      status: VocabStatus;
+      note: string;
+      exampleZh: string;
+      exampleVi: string;
+    }>,
+  ) =>
+    request<VocabWord>(`/vocab/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
   updateVocabStatus: (id: string, status: VocabStatus, recordReview = false) =>
     request<{ word: VocabWord; profile: UserProfile | null }>(`/vocab/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status, recordReview }),
     }),
+  batchUpdateVocabStatus: (ids: string[], status: VocabStatus) =>
+    request<{ updatedCount: number; status: VocabStatus }>('/vocab/batch/status', {
+      method: 'PATCH',
+      body: JSON.stringify({ ids, status }),
+    }),
   deleteVocab: (id: string) =>
     request<{ deleted: boolean; id: string }>(`/vocab/${id}`, { method: 'DELETE' }),
+  batchDeleteVocab: (ids: string[]) =>
+    request<{ deletedCount: number }>('/vocab/batch/delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
 
   // Notes
   getNotes: () => request<MindNote[]>('/notes'),

@@ -1,4 +1,16 @@
-import { IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayNotEmpty,
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { VocabStatus } from '../../schemas/vocab.schema';
 
 export class CreateVocabDto {
@@ -103,4 +115,23 @@ export class UpdateVocabStatusDto {
   @IsOptional()
   @IsBoolean()
   recordReview?: boolean;
+}
+
+export class BatchUpdateVocabStatusDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayMaxSize(2000)
+  @IsString({ each: true })
+  ids: string[];
+
+  @IsIn(['mastered', 'learning', 'review', 'new'])
+  status: VocabStatus;
+}
+
+export class BatchDeleteVocabDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayMaxSize(2000)
+  @IsString({ each: true })
+  ids: string[];
 }
