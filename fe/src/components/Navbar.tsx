@@ -1,7 +1,8 @@
 import { Disc3, Flame, Sparkles } from 'lucide-react';
-import React, { useEffect, useRef, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { preloadRoute } from '../routes/lazyPages';
 
 const NAV_ITEMS = [
   { to: '/', num: '[01]', label: 'Trang chủ', end: true },
@@ -15,7 +16,32 @@ const NAV_ITEMS = [
 
 export const Navbar: React.FC = () => {
   const { profile, toggleTheme, showToast } = useApp();
+  const { pathname } = useLocation();
   const [cdPlaying, setCdPlaying] = useState(false);
+
+  const navRef = useRef<HTMLElement | null>(null);
+  const tabRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+  const [sliderStyle, setSliderStyle] = useState<{ left: number; width: number; ready: boolean }>({
+    left: 0,
+    width: 0,
+    ready: false,
+  });
+
+  const activeNavIdx = NAV_ITEMS.findIndex((item) =>
+    item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(`${item.to}/`),
+  );
+
+  useLayoutEffect(() => {
+    const updateSlider = () => {
+      const idx = activeNavIdx >= 0 ? activeNavIdx : 0;
+      const el = tabRefs.current[idx];
+      if (!el) return;
+      setSliderStyle({ left: el.offsetLeft, width: el.offsetWidth, ready: true });
+    };
+    updateSlider();
+    window.addEventListener('resize', updateSlider);
+    return () => window.removeEventListener('resize', updateSlider);
+  }, [activeNavIdx, profile.theme]);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const cdIntervalRef = useRef<number | null>(null);
@@ -118,18 +144,34 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
 
-        {/* Center: Desktop 7-Module Navigation (single-line, no wrapping) */}
+        {/* Center: Desktop 7-Module Navigation with smooth sliding pill */}
         <nav
+          ref={navRef}
           aria-label="Điều hướng chính"
-          className="hidden xl:flex items-center justify-center gap-1 2xl:gap-1.5 font-mono text-[11px] min-w-0"
+          className="relative hidden xl:flex items-center justify-center gap-1 2xl:gap-1.5 font-mono text-[11px] min-w-0 p-1 rounded-lg"
         >
-          {NAV_ITEMS.map((item) => (
+          {sliderStyle.ready && (
+            <span
+              aria-hidden="true"
+              className="nav-slider-pill pointer-events-none absolute top-1 bottom-1 left-0 z-0 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+              style={{
+                width: `${sliderStyle.width}px`,
+                transform: `translateX(${sliderStyle.left}px)`,
+              }}
+            />
+          )}
+          {NAV_ITEMS.map((item, idx) => (
             <NavLink
               key={item.to}
+              ref={(el) => {
+                tabRefs.current[idx] = el;
+              }}
               to={item.to}
               end={item.end}
+              onMouseEnter={() => preloadRoute(item.to)}
+              onFocus={() => preloadRoute(item.to)}
               className={({ isActive }) =>
-                `nav-tab-btn px-2.5 py-1.5 border transition whitespace-nowrap shrink-0 inline-flex items-center gap-1 ${
+                `nav-tab-btn relative z-10 px-2.5 py-1.5 border transition-colors duration-200 whitespace-nowrap shrink-0 inline-flex items-center gap-1 ${
                   isActive ? 'is-active' : ''
                 }`
               }

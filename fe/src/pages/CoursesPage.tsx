@@ -100,11 +100,13 @@ export const CoursesPage: React.FC = () => {
       {/* Group 1: Trung cấp (HSK 4-6) */}
       <div className="space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <span className="px-2.5 py-1 bg-[#111111] text-[#EFE078] font-mono text-xs font-bold rounded-[4px]">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            <span className="px-2.5 py-1 bg-[#111111] text-[#EFE078] font-mono text-xs font-bold rounded-[4px] whitespace-nowrap shrink-0">
               TRUNG CẤP
             </span>
-            <h3 className="font-serif font-bold text-2xl">Khóa học Trung cấp (HSK 4 – HSK 6)</h3>
+            <h3 className="font-serif font-bold text-xl sm:text-2xl leading-tight">
+              Khóa học Trung cấp (HSK 4 – HSK 6)
+            </h3>
           </div>
           <span className="font-mono text-xs opacity-70">Trọng tâm: HSK 5 (NEW HSK 3.0)</span>
         </div>
@@ -114,11 +116,13 @@ export const CoursesPage: React.FC = () => {
       {/* Group 2: Sơ cấp (HSK 1-3) */}
       <div className="space-y-3.5 pt-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <span className="px-2.5 py-1 bg-[#F4C2D7] text-[#111111] font-mono text-xs font-bold t-badge">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            <span className="px-2.5 py-1 bg-[#F4C2D7] text-[#111111] font-mono text-xs font-bold t-badge whitespace-nowrap shrink-0">
               SƠ CẤP
             </span>
-            <h3 className="font-serif font-bold text-2xl">Khóa học Sơ cấp (HSK 1 – HSK 3)</h3>
+            <h3 className="font-serif font-bold text-xl sm:text-2xl leading-tight">
+              Khóa học Sơ cấp (HSK 1 – HSK 3)
+            </h3>
           </div>
           <span className="font-mono text-xs opacity-70">Nền tảng giao tiếp &amp; từ vựng cốt lõi</span>
         </div>

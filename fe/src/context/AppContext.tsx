@@ -54,6 +54,7 @@ interface AppContextValue {
   setMascotSay: (text: string) => void;
   apiConnected: boolean;
   showToast: (msg: string, variant?: ToastVariant) => void;
+  dismissToast: (id: string) => void;
   toggleTheme: () => void;
   performDailyCheckin: (ev?: ClickCoords) => Promise<void>;
   adjustDailyTarget: (delta: number) => Promise<void>;
@@ -277,13 +278,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  const toastTimersRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    const timers = toastTimersRef.current;
+    return () => {
+      timers.forEach((timerId) => window.clearTimeout(timerId));
+      timers.clear();
+    };
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    const timer = toastTimersRef.current.get(id);
+    if (timer) {
+      window.clearTimeout(timer);
+      toastTimersRef.current.delete(id);
+    }
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   const showToast = useCallback(
     (message: string, variant: ToastVariant = "dark") => {
+      const MAX_TOASTS = 2;
+      const getGroupKey = (msg: string) => {
+        if (msg.startsWith("Đã chuyển sang giao diện")) return "theme";
+        if (msg.includes("Đĩa CD")) return "cd";
+        if (msg.startsWith("Đã đổi màu mực")) return "ink";
+        if (msg.startsWith("Bạn đã điểm danh")) return "checkin";
+        return msg;
+      };
+
       const id = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      setToasts((prev) => [...prev, { id, message, variant }]);
-      setTimeout(() => {
+      const groupKey = getGroupKey(message);
+
+      setToasts((prev) => {
+        // Remove duplicates or same-group toggle spam (e.g. spamming Theme / CD)
+        const filtered = prev.filter((t) => {
+          const sameGroup = getGroupKey(t.message) === groupKey;
+          if (sameGroup) {
+            const oldTimer = toastTimersRef.current.get(t.id);
+            if (oldTimer) {
+              window.clearTimeout(oldTimer);
+              toastTimersRef.current.delete(t.id);
+            }
+          }
+          return !sameGroup;
+        });
+
+        const next = [...filtered, { id, message, variant }];
+        // Keep strictly at most MAX_TOASTS items on screen
+        while (next.length > MAX_TOASTS) {
+          const evicted = next.shift();
+          if (evicted) {
+            const oldTimer = toastTimersRef.current.get(evicted.id);
+            if (oldTimer) {
+              window.clearTimeout(oldTimer);
+              toastTimersRef.current.delete(evicted.id);
+            }
+          }
+        }
+        return next;
+      });
+
+      const timerId = window.setTimeout(() => {
+        toastTimersRef.current.delete(id);
         setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 3050);
+      }, 2200);
+      toastTimersRef.current.set(id, timerId);
     },
     [],
   );
@@ -298,18 +359,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const toggleTheme = useCallback(() => {
-    setProfile((prev) => {
-      const nextTheme: ThemeMode = prev.theme === "zine" ? "diary" : "zine";
-      api.updateProfile({ theme: nextTheme }).catch(() => {});
-      showToast(
-        nextTheme === "zine"
-          ? "Đã chuyển sang giao diện Editorial Zine"
-          : "Đã chuyển sang giao diện Pastel Diary",
-        "pink",
-      );
-      return { ...prev, theme: nextTheme };
-    });
-  }, [showToast]);
+    const nextTheme: ThemeMode = profile.theme === "zine" ? "diary" : "zine";
+    setProfile((prev) => ({ ...prev, theme: nextTheme }));
+    api.updateProfile({ theme: nextTheme }).catch(() => {});
+    showToast(
+      nextTheme === "zine"
+        ? "Đã chuyển sang giao diện Editorial Zine"
+        : "Đã chuyển sang giao diện Pastel Diary",
+      "pink",
+    );
+  }, [profile.theme, showToast]);
 
   const performDailyCheckin = useCallback(
     async (ev?: ClickCoords) => {
@@ -970,6 +1029,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         setMascotSay,
         apiConnected,
         showToast,
+        dismissToast,
         toggleTheme,
         performDailyCheckin,
         adjustDailyTarget,

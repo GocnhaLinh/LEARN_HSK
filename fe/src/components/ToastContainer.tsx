@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import React from 'react';
 import { useApp } from '../context/AppContext';
 
@@ -8,19 +9,25 @@ const VARIANT_STYLES = {
 };
 
 export const ToastContainer: React.FC = () => {
-  const { toasts } = useApp();
+  const { toasts, dismissToast } = useApp();
+
+  if (!toasts.length) return null;
 
   return (
-    <div className="fixed top-20 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+    <div className="fixed top-[72px] inset-x-3 sm:inset-x-auto sm:right-4 z-50 flex flex-col items-center sm:items-end gap-2 pointer-events-none">
       {toasts.map((t) => (
-        <div
+        <button
           key={t.id}
-          className={`toast-in pointer-events-auto px-4 py-2.5 rounded-xl border-[1.5px] shadow-[3px_3px_0px_#141414] font-mono text-xs font-bold max-w-xs ${
+          type="button"
+          onClick={() => dismissToast(t.id)}
+          title="Nhấn để đóng"
+          className={`toast-in pointer-events-auto inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border-[1.5px] shadow-[3px_3px_0px_#141414] font-mono text-[11px] sm:text-xs font-bold max-w-full sm:max-w-xs text-left cursor-pointer ${
             VARIANT_STYLES[t.variant] || VARIANT_STYLES.dark
           }`}
         >
-          {t.message}
-        </div>
+          <span className="leading-snug">{t.message}</span>
+          <X className="w-3.5 h-3.5 shrink-0 opacity-70" />
+        </button>
       ))}
     </div>
   );

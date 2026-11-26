@@ -1,9 +1,4 @@
-import mammoth from 'mammoth';
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url';
 import { ExtractedExerciseRow, ExtractedVocabRow } from '../types';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface PdfTextItem {
   x: number;
@@ -460,10 +455,17 @@ export async function parseCourseFile(
   let tableExtracted: ExtractedVocabRow[] = [];
 
   if (ext === 'docx') {
+    const mammothMod = await import('mammoth');
+    const mammoth = mammothMod.default || mammothMod;
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
     rawText = result.value || '';
   } else if (ext === 'pdf') {
+    const [pdfjsLib, workerMod] = await Promise.all([
+      import('pdfjs-dist'),
+      import('pdfjs-dist/build/pdf.worker.min.js?url'),
+    ]);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerMod.default;
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const pagesText: string[] = [];

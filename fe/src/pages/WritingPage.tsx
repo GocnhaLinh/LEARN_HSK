@@ -1,9 +1,33 @@
-import HanziWriter from 'hanzi-writer';
+import HanziWriter, { CharacterJson } from 'hanzi-writer';
 import { Eraser, Eye, Info, PencilLine, Play, Save, Trash2, Volume2 } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { speakChinese } from '../utils/helpers';
+
+const charDataCache = new Map<string, CharacterJson>();
+
+const cachedCharDataLoader = (
+  char: string,
+  onLoad: (data: CharacterJson) => void,
+  onError: (err?: unknown) => void,
+) => {
+  const cached = charDataCache.get(char);
+  if (cached) {
+    onLoad(cached);
+    return;
+  }
+  HanziWriter.loadCharacterData(char)
+    .then((data) => {
+      if (data) {
+        charDataCache.set(char, data);
+        onLoad(data);
+      } else {
+        onError(new Error('No character data'));
+      }
+    })
+    .catch((err) => onError(err));
+};
 
 export const WritingPage: React.FC = () => {
   const { char: charParam } = useParams();
@@ -31,6 +55,8 @@ export const WritingPage: React.FC = () => {
 
   const writerBoxRef = useRef<HTMLDivElement | null>(null);
   const writerInstanceRef = useRef<HanziWriter | null>(null);
+  const activeCharRef = useRef<string>(activeChar);
+  activeCharRef.current = activeChar;
 
   // Freehand canvas state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -42,18 +68,39 @@ export const WritingPage: React.FC = () => {
 
   const matchedWord = vocab.find((v) => v.hanzi.includes(activeChar));
 
-  // Initialize HanziWriter whenever activeChar changes in hanzi mode
+  // Destroy HanziWriter cleanly only when leaving Hanzi mode or unmounting
+  useEffect(() => {
+    if (isCanvasMode) {
+      writerInstanceRef.current = null;
+      return;
+    }
+    const target = writerBoxRef.current;
+    return () => {
+      if (target) target.innerHTML = '';
+      writerInstanceRef.current = null;
+    };
+  }, [isCanvasMode]);
+
+  // Create HanziWriter once and reuse via setCharacter() on char switch (zero flicker)
   useEffect(() => {
     if (isCanvasMode) return;
     const target = writerBoxRef.current;
     if (!target) return;
 
-    target.innerHTML = '';
-    writerInstanceRef.current = null;
     setShowOutline(true);
     setLoadError(null);
-    setStatusText(`Đang tải bút thuận chữ "${activeChar}"...`);
+    if (!charDataCache.has(activeChar)) {
+      setStatusText(`Đang tải bút thuận chữ "${activeChar}"...`);
+    }
 
+    const existing = writerInstanceRef.current;
+    if (existing) {
+      existing.setCharacter(activeChar).catch(() => {});
+      existing.showOutline({ duration: 0 }).catch(() => {});
+      return;
+    }
+
+    target.innerHTML = '';
     try {
       const instance = HanziWriter.create(target, activeChar, {
         width: 280,
@@ -65,26 +112,24 @@ export const WritingPage: React.FC = () => {
         outlineColor: '#DDD8CE',
         drawingColor: '#141414',
         drawingWidth: 18,
+        charDataLoader: cachedCharDataLoader,
         onLoadCharDataSuccess: () => {
+          const ch = activeCharRef.current;
+          setLoadError(null);
           setStatusText(
-            `Sẵn sàng luyện viết chữ "${activeChar}". Nhấn "Xem nét mẫu" hoặc "Quiz (+10 XP)".`,
+            `Sẵn sàng luyện viết chữ "${ch}". Nhấn "Xem nét mẫu" hoặc "Quiz (+10 XP)".`,
           );
         },
         onLoadCharDataError: () => {
-          writerInstanceRef.current = null;
-          setLoadError(`Không tìm thấy nét vẽ cho "${activeChar}".`);
-          setStatusText(`Ký tự "${activeChar}" không có trong kho nét viết.`);
+          const ch = activeCharRef.current;
+          setLoadError(`Không tìm thấy nét vẽ cho "${ch}".`);
+          setStatusText(`Ký tự "${ch}" không có trong kho nét viết.`);
         },
       });
       writerInstanceRef.current = instance;
     } catch {
       setStatusText('Lỗi khởi tạo HanziWriter.');
     }
-
-    return () => {
-      if (target) target.innerHTML = '';
-      writerInstanceRef.current = null;
-    };
   }, [activeChar, isCanvasMode]);
 
   const handleLoadChar = () => {
@@ -234,8 +279,8 @@ export const WritingPage: React.FC = () => {
   };
 
   return (
-    <section className="space-y-6">
-      <div className="t-card-flat p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <section className="space-y-4 sm:space-y-5">
+      <div className="t-card-flat p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] uppercase opacity-65">[04] WRITING STUDIO // 米字格</p>
           <h2 className="font-serif font-bold text-2xl">Luyện viết Chữ Hán</h2>
@@ -269,9 +314,9 @@ export const WritingPage: React.FC = () => {
 
       {/* SUB-TAB A: HANZIWRITER */}
       {!isCanvasMode ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-5 space-y-4">
-            <div className="t-card p-5 space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-start">
+          <div className="lg:col-span-5 space-y-3.5">
+            <div className="t-card p-4 space-y-2.5">
               <label htmlFor="write-char-input" className="font-mono text-xs font-bold uppercase block">
                 Nhập chữ Hán bất kỳ để đồ nét
               </label>
@@ -298,7 +343,7 @@ export const WritingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="t-card p-5 space-y-3">
+            <div className="t-card p-4 space-y-2.5">
               <div className="flex items-center justify-between">
                 <p className="font-mono text-xs font-bold uppercase">Chọn nhanh chữ luyện viết</p>
               </div>
@@ -323,7 +368,7 @@ export const WritingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="t-card p-5 flex items-center justify-between gap-3">
+            <div className="t-card p-4 flex items-center justify-between gap-3">
               <div>
                 <div className="flex items-baseline gap-2.5">
                   <span className="font-serifcn text-4xl font-bold">{activeChar}</span>
@@ -348,23 +393,25 @@ export const WritingPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-7 t-card p-6 flex flex-col items-center">
-            <div className="w-full mb-5 px-4 py-2.5 bg-[#F8F6F1] border border-[#141414] rounded-lg font-mono text-xs flex items-center gap-2">
+          <div className="lg:col-span-7 t-card p-5 flex flex-col items-center">
+            <div className="w-full mb-4 px-3.5 py-2 bg-[#F8F6F1] border border-[#141414] rounded-lg font-mono text-xs flex items-center gap-2">
               <Info className="w-4 h-4 shrink-0" />
               <span>{statusText}</span>
             </div>
 
             <div className="mizige-grid flex items-center justify-center">
-              {loadError ? (
+              <div
+                ref={writerBoxRef}
+                className={`relative z-10 w-[280px] h-[280px] ${loadError ? 'hidden' : ''}`}
+              />
+              {loadError && (
                 <div className="relative z-10 w-[280px] h-[280px] flex items-center justify-center p-4 text-center font-mono text-xs text-red-700">
                   {loadError}
                 </div>
-              ) : (
-                <div ref={writerBoxRef} className="relative z-10 w-[280px] h-[280px]" />
               )}
             </div>
 
-            <div className="w-full max-w-md grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-6 font-mono text-xs font-bold">
+            <div className="w-full max-w-md grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-4 font-mono text-xs font-bold">
               <button
                 type="button"
                 onClick={handleAnimate}

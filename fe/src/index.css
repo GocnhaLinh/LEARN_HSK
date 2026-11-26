@@ -148,6 +148,8 @@ body {
 .t-badge {
   border: 1.5px solid var(--border-color);
   border-radius: var(--radius-badge);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .t-navbar {
@@ -163,31 +165,40 @@ body {
   border-radius: var(--radius-card);
 }
 
-/* Navbar Tabs per Theme */
+/* Navbar Tabs per Theme (supports smooth sliding active pill) */
 [data-theme="diary"] .nav-tab-btn {
-  border-color: #D8BED5;
+  border-color: transparent;
   color: #5E4B63;
   border-radius: 9999px;
 }
+[data-theme="diary"] .nav-tab-btn:hover {
+  color: #2A1F2D;
+}
 [data-theme="diary"] .nav-tab-btn.is-active {
-  background-color: #2A1F2D;
   color: #FFFFFF;
-  border-color: #2A1F2D;
+  font-weight: 700;
+}
+[data-theme="diary"] .nav-slider-pill {
+  background-color: #2A1F2D;
+  border: 1.5px solid #2A1F2D;
+  border-radius: 9999px;
 }
 [data-theme="zine"] .nav-tab-btn {
-  border-color: #333333;
+  border-color: transparent;
   color: #D6D3D1;
   border-radius: 4px;
 }
 [data-theme="zine"] .nav-tab-btn:hover {
-  border-color: #EFE078;
   color: #FFFFFF;
 }
 [data-theme="zine"] .nav-tab-btn.is-active {
-  background-color: #F4C2D7;
   color: #111111;
-  border-color: #F4C2D7;
   font-weight: 700;
+}
+[data-theme="zine"] .nav-slider-pill {
+  background-color: #F4C2D7;
+  border: 1.5px solid #F4C2D7;
+  border-radius: 4px;
 }
 
 /* =========================================================================
@@ -195,10 +206,10 @@ body {
    ========================================================================= */
 @keyframes tabPopIn {
   0% { opacity: 0; transform: translateY(16px) scale(0.985); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 1; transform: none; }
 }
 .module-animate {
-  animation: tabPopIn 0.36s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: tabPopIn 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes floatY {
@@ -292,25 +303,48 @@ body {
   animation: confettiBurst 0.95s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* 3D Flashcard Flip */
-.perspective-1200 {
-  perspective: 1200px;
+/* Crisp 2-Stage Flashcard Flip & Directional Slide (always ends at transform: none) */
+@keyframes cardFlipOutFwd {
+  0% { transform: perspective(1100px) rotateY(0deg); }
+  100% { transform: perspective(1100px) rotateY(90deg); }
 }
-.flip-inner {
-  position: relative;
-  width: 100%;
-  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
-  transform-style: preserve-3d;
+@keyframes cardFlipInFwd {
+  0% { transform: perspective(1100px) rotateY(-90deg); }
+  100% { transform: none; }
 }
-.flip-inner.is-flipped {
-  transform: rotateY(180deg);
+@keyframes cardFlipOutBack {
+  0% { transform: perspective(1100px) rotateY(0deg); }
+  100% { transform: perspective(1100px) rotateY(-90deg); }
 }
-.flip-face {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+@keyframes cardFlipInBack {
+  0% { transform: perspective(1100px) rotateY(90deg); }
+  100% { transform: none; }
 }
-.flip-back {
-  transform: rotateY(180deg);
+@keyframes cardSlideNext {
+  0% { opacity: 0; transform: translateX(36px) scale(0.98); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes cardSlidePrev {
+  0% { opacity: 0; transform: translateX(-36px) scale(0.98); }
+  100% { opacity: 1; transform: none; }
+}
+.card-flip-out-fwd {
+  animation: cardFlipOutFwd 0.17s ease-in forwards;
+}
+.card-flip-in-fwd {
+  animation: cardFlipInFwd 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-flip-out-back {
+  animation: cardFlipOutBack 0.17s ease-in forwards;
+}
+.card-flip-in-back {
+  animation: cardFlipInBack 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-slide-next {
+  animation: cardSlideNext 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-slide-prev {
+  animation: cardSlidePrev 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Traditional Mi-Zi-Ge (米字格) Grid */

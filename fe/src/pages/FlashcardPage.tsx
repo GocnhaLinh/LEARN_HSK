@@ -5,17 +5,20 @@ import { useApp } from '../context/AppContext';
 import { VocabStatus } from '../types';
 import { speakChinese } from '../utils/helpers';
 
-const FILTER_OPTIONS = [
-  { key: 'all', label: 'Tất cả' },
-  { key: 'review', label: 'Cần chú ý' },
-  { key: 'learning', label: 'Đang học' },
-  { key: 'new', label: 'Từ mới' },
-  { key: 'hsk1', label: 'HSK 1' },
-  { key: 'hsk2', label: 'HSK 2' },
-  { key: 'hsk3', label: 'HSK 3' },
-  { key: 'hsk4', label: 'HSK 4' },
-  { key: 'hsk5', label: 'HSK 5' },
-  { key: 'hsk6', label: 'HSK 6' },
+const STATUS_FILTERS = [
+  { key: 'all', label: 'Tất cả', shortLabel: 'Tất cả' },
+  { key: 'review', label: 'Cần chú ý', shortLabel: 'Chú ý' },
+  { key: 'learning', label: 'Đang học', shortLabel: 'Đang học' },
+  { key: 'new', label: 'Từ mới', shortLabel: 'Từ mới' },
+];
+
+const LEVEL_FILTERS = [
+  { key: 'hsk1', label: 'HSK 1', shortLabel: 'H1' },
+  { key: 'hsk2', label: 'HSK 2', shortLabel: 'H2' },
+  { key: 'hsk3', label: 'HSK 3', shortLabel: 'H3' },
+  { key: 'hsk4', label: 'HSK 4', shortLabel: 'H4' },
+  { key: 'hsk5', label: 'HSK 5', shortLabel: 'H5' },
+  { key: 'hsk6', label: 'HSK 6', shortLabel: 'H6' },
 ];
 
 const STATUS_LABELS: Record<VocabStatus, string> = {
@@ -34,13 +37,34 @@ export const FlashcardPage: React.FC = () => {
 
   const [fcIndex, setFcIndex] = useState(0);
   const [fcFlipped, setFcFlipped] = useState(false);
+  const [cardAnim, setCardAnim] = useState<string>('');
   const [autoRead, setAutoRead] = useState(false);
+  const flipTimerRef = React.useRef<number | null>(null);
 
   // Reset card index & flip when route filter or lesson changes
   useEffect(() => {
     setFcIndex(0);
     setFcFlipped(false);
+    setCardAnim('');
   }, [activeFilter, lessonParam]);
+
+  useEffect(() => {
+    return () => {
+      if (flipTimerRef.current) window.clearTimeout(flipTimerRef.current);
+    };
+  }, []);
+
+  const triggerFlip = useCallback(() => {
+    if (flipTimerRef.current) window.clearTimeout(flipTimerRef.current);
+    setCardAnim(fcFlipped ? 'card-flip-out-back' : 'card-flip-out-fwd');
+    flipTimerRef.current = window.setTimeout(() => {
+      setFcFlipped((prev) => {
+        const next = !prev;
+        setCardAnim(next ? 'card-flip-in-fwd' : 'card-flip-in-back');
+        return next;
+      });
+    }, 160);
+  }, [fcFlipped]);
 
   const list = useMemo(() => {
     if (lessonParam) {
@@ -88,7 +112,9 @@ export const FlashcardPage: React.FC = () => {
   const navCard = useCallback(
     (dir: number) => {
       if (!list.length) return;
+      if (flipTimerRef.current) window.clearTimeout(flipTimerRef.current);
       setFcFlipped(false);
+      setCardAnim(dir > 0 ? 'card-slide-next' : 'card-slide-prev');
       setFcIndex((prev) => (prev + dir + list.length) % list.length);
     },
     [list.length],
@@ -97,8 +123,10 @@ export const FlashcardPage: React.FC = () => {
   const handleRate = useCallback(
     async (newStatus: VocabStatus, ev?: { clientX?: number; clientY?: number }) => {
       if (!word) return;
+      if (flipTimerRef.current) window.clearTimeout(flipTimerRef.current);
       await rateFlashcardWord(word.id, newStatus, ev);
       setFcFlipped(false);
+      setCardAnim('card-slide-next');
       setFcIndex((prev) => (list.length > 1 ? (prev + 1) % list.length : 0));
     },
     [word, rateFlashcardWord, list.length],
@@ -111,7 +139,7 @@ export const FlashcardPage: React.FC = () => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
       if (e.code === 'Space') {
         e.preventDefault();
-        setFcFlipped((f) => !f);
+        triggerFlip();
       } else if (e.key === 'ArrowLeft') {
         navCard(-1);
       } else if (e.key === 'ArrowRight') {
@@ -126,14 +154,16 @@ export const FlashcardPage: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [navCard, handleRate]);
+  }, [navCard, handleRate, triggerFlip]);
 
   return (
     <section className="space-y-6">
-      <div className="t-card-flat p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div>
-          <p className="font-mono text-[11px] uppercase opacity-65">[03] SMART FLASHCARD SYSTEM</p>
-          <h2 className="font-serif font-bold text-2xl">Y2K Digicam &amp; Flip-TTS</h2>
+      <div className="t-card-flat p-3.5 sm:p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3">
+        <div className="shrink-0">
+          <p className="font-mono text-[10px] sm:text-[11px] uppercase opacity-65">
+            [03] SMART FLASHCARD SYSTEM
+          </p>
+          <h2 className="font-serif font-bold text-xl sm:text-2xl">Y2K Digicam &amp; Flip-TTS</h2>
           {lessonParam && (
             <p className="font-mono text-xs font-bold text-[#A62626] mt-1">
               Đang ôn bài học: {activeLessonObj ? activeLessonObj.title : lessonParam}
@@ -141,24 +171,47 @@ export const FlashcardPage: React.FC = () => {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-1.5 font-mono text-xs">
-          {FILTER_OPTIONS.map((opt) => {
-            const active = activeFilter === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => navigate(`/flashcard/${opt.key}`)}
-                className={
-                  active
-                    ? 't-btn px-2.5 py-1.5 bg-[#111111] text-white font-bold'
-                    : 't-btn px-2.5 py-1.5 bg-white text-[#111111] hover:bg-[#EFE078]'
-                }
-              >
-                {opt.label}
-              </button>
-            );
-          })}
+        <div className="flex flex-col lg:flex-row lg:flex-wrap lg:justify-end gap-1.5 font-mono text-[11px] sm:text-xs">
+          <div className="grid grid-cols-4 sm:flex sm:flex-wrap gap-1.5">
+            {STATUS_FILTERS.map((opt) => {
+              const active = activeFilter === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => navigate(`/flashcard/${opt.key}`)}
+                  className={`t-btn px-1.5 sm:px-2.5 py-1.5 whitespace-nowrap text-center ${
+                    active
+                      ? 'bg-[#111111] text-white font-bold'
+                      : 'bg-white text-[#111111] hover:bg-[#EFE078]'
+                  }`}
+                >
+                  <span className="sm:hidden">{opt.shortLabel}</span>
+                  <span className="hidden sm:inline">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-6 sm:flex sm:flex-wrap gap-1.5">
+            {LEVEL_FILTERS.map((opt) => {
+              const active = activeFilter === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => navigate(`/flashcard/${opt.key}`)}
+                  className={`t-btn px-1 sm:px-2.5 py-1.5 whitespace-nowrap text-center ${
+                    active
+                      ? 'bg-[#111111] text-white font-bold'
+                      : 'bg-white text-[#111111] hover:bg-[#EFE078]'
+                  }`}
+                >
+                  <span className="sm:hidden">{opt.shortLabel}</span>
+                  <span className="hidden sm:inline">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -192,7 +245,7 @@ export const FlashcardPage: React.FC = () => {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setFcFlipped((f) => !f)}
+                  onClick={triggerFlip}
                   className="px-2.5 py-0.5 bg-[#111111] text-white border border-[#111111] rounded-[3px] font-bold hover:bg-neutral-800"
                 >
                   LẬT THẺ [SPACE]
@@ -200,16 +253,17 @@ export const FlashcardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Digicam LCD Screen */}
-            <div className="perspective-1200">
-              <div
-                onClick={() => setFcFlipped((f) => !f)}
-                className={`flip-inner min-h-[340px] sm:min-h-[360px] cursor-pointer ${
-                  fcFlipped ? 'is-flipped' : ''
-                }`}
-              >
-                {/* FRONT FACE */}
-                <div className="flip-face absolute inset-0 bg-[#F9F7F2] border-2 border-[#141414] rounded-xl p-5 sm:p-7 flex flex-col justify-between shadow-inner">
+            {/* Digicam LCD Screen (2-stage smooth 3D flip + crisp non-blurry resting text) */}
+            <div onClick={triggerFlip} className="cursor-pointer overflow-hidden">
+              {!fcFlipped ? (
+                /* FRONT FACE */
+                <div
+                  key={`front-${word.id}-${fcIndex}`}
+                  onAnimationEnd={() => {
+                    if (!cardAnim.includes('out')) setCardAnim('');
+                  }}
+                  className={`${cardAnim} min-h-[340px] sm:min-h-[360px] bg-[#F9F7F2] border-2 border-[#141414] rounded-xl p-5 sm:p-7 flex flex-col justify-between shadow-inner`}
+                >
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-1 bg-[#111111] text-white font-mono text-xs font-bold rounded-[4px]">
                       HSK {word.level}
@@ -232,18 +286,24 @@ export const FlashcardPage: React.FC = () => {
 
                   <div className="pt-3 border-t border-dashed border-[#141414]/30 flex items-center justify-between font-mono text-[11px] text-[#57534E]">
                     <span className="flex items-center gap-1.5">
-                      <Pointer className="w-3.5 h-3.5" />
+                      <Pointer className="w-3.5 h-3.5 shrink-0" />
                       Bấm vào màn hình hoặc nhấn Space để lật xem nghĩa
                     </span>
-                    <span className="font-serifcn text-sm text-[#141414]">〔 汉 〕</span>
+                    <span className="font-serifcn text-sm text-[#141414] shrink-0">〔 汉 〕</span>
                   </div>
                 </div>
-
-                {/* BACK FACE */}
-                <div className="flip-face flip-back absolute inset-0 bg-[#FFFDF9] border-2 border-[#141414] rounded-xl p-5 sm:p-7 flex flex-col justify-between overflow-y-auto">
+              ) : (
+                /* BACK FACE */
+                <div
+                  key={`back-${word.id}-${fcIndex}`}
+                  onAnimationEnd={() => {
+                    if (!cardAnim.includes('out')) setCardAnim('');
+                  }}
+                  className={`${cardAnim} min-h-[340px] sm:min-h-[360px] bg-[#FFFDF9] border-2 border-[#141414] rounded-xl p-5 sm:p-7 flex flex-col justify-between`}
+                >
                   <div className="space-y-3.5">
                     <div className="flex items-start justify-between gap-2 pb-3 border-b border-dashed border-[#141414]/30">
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-baseline flex-wrap gap-2.5">
                           <span className="font-serifcn text-3xl sm:text-4xl font-bold text-[#141414]">
                             {word.hanzi}
@@ -288,7 +348,7 @@ export const FlashcardPage: React.FC = () => {
                     </div>
 
                     <div className="p-3 bg-white border border-[#141414] rounded-lg">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="font-mono text-[10px] font-bold uppercase text-[#57534E]">
                           Ví dụ ngữ cảnh
                         </span>
@@ -298,7 +358,7 @@ export const FlashcardPage: React.FC = () => {
                             e.stopPropagation();
                             speakChinese(word.exampleZh || word.hanzi, 0.92, (m) => showToast(m, 'pink'));
                           }}
-                          className="px-2 py-0.5 bg-[#111111] text-white font-mono text-[10px] rounded flex items-center gap-1"
+                          className="px-2 py-0.5 bg-[#111111] text-white font-mono text-[10px] rounded inline-flex items-center gap-1 whitespace-nowrap shrink-0"
                         >
                           <Volume2 className="w-3 h-3" /> Nghe câu
                         </button>
@@ -312,7 +372,7 @@ export const FlashcardPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* 3 SRS Rating Buttons */}

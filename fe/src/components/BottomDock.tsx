@@ -8,7 +8,8 @@ import {
   PenTool,
 } from 'lucide-react';
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
+import { preloadRoute } from '../routes/lazyPages';
 
 const DOCK_ITEMS = [
   { to: '/', label: 'Trang chủ', Icon: Home, end: true },
@@ -21,13 +22,31 @@ const DOCK_ITEMS = [
 ];
 
 export const BottomDock: React.FC = () => {
+  const { pathname } = useLocation();
+  const activeIdx = Math.max(
+    0,
+    DOCK_ITEMS.findIndex((item) =>
+      item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(`${item.to}/`),
+    ),
+  );
+
   return (
     <div className="xl:hidden fixed bottom-3.5 inset-x-0 z-40 px-2.5 pointer-events-none">
       <nav
         aria-label="Thanh điều hướng nhanh"
-        className="pointer-events-auto max-w-2xl mx-auto bg-[#111111]/95 text-[#D6D3D1] backdrop-blur-md border border-neutral-700 rounded-2xl px-1.5 py-1.5 shadow-[0_14px_36px_rgba(0,0,0,0.34)]"
+        className="pointer-events-auto max-w-2xl mx-auto bg-[#111111]/95 text-[#D6D3D1] backdrop-blur-md border border-neutral-700 rounded-2xl p-1.5 shadow-[0_14px_36px_rgba(0,0,0,0.34)]"
       >
-        <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
+        <div className="relative grid grid-cols-7">
+          {/* Smooth sliding yellow active highlight */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute top-0 bottom-0 left-0 rounded-xl bg-[#EFE078] transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+            style={{
+              width: `${100 / DOCK_ITEMS.length}%`,
+              transform: `translateX(${activeIdx * 100}%)`,
+            }}
+          />
+
           {DOCK_ITEMS.map(({ to, label, Icon, end }) => (
             <NavLink
               key={to}
@@ -35,9 +54,11 @@ export const BottomDock: React.FC = () => {
               end={end}
               title={label}
               aria-label={label}
+              onTouchStart={() => preloadRoute(to)}
+              onMouseEnter={() => preloadRoute(to)}
               className={({ isActive }) =>
-                `dock-btn flex flex-col items-center justify-center py-2.5 sm:py-1.5 px-0.5 rounded-xl text-[10px] font-mono transition ${
-                  isActive ? 'bg-[#EFE078] text-[#111111] font-bold' : ''
+                `dock-btn relative z-10 flex flex-col items-center justify-center py-2.5 sm:py-1.5 px-0.5 rounded-xl text-[10px] font-mono transition-colors duration-200 ${
+                  isActive ? 'text-[#111111] font-bold' : 'text-[#D6D3D1]'
                 }`
               }
             >
