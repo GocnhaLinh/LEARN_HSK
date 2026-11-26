@@ -1,5 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { CreateVocabDto, UpdateVocabDto, UpdateVocabStatusDto } from './vocab.dto';
+import {
+  BatchDeleteVocabDto,
+  BatchUpdateVocabStatusDto,
+  CreateVocabDto,
+  UpdateVocabDto,
+  UpdateVocabStatusDto,
+} from './vocab.dto';
 import { VocabService } from './vocab.service';
 
 @Controller('vocab')
@@ -14,6 +20,16 @@ export class VocabController {
     @Query('search') search?: string,
   ) {
     return this.vocabService.findAll({ level, status, lessonId, search });
+  }
+
+  @Patch('batch/status')
+  batchUpdateStatus(@Body() dto: BatchUpdateVocabStatusDto) {
+    return this.vocabService.batchUpdateStatus(dto.ids, dto.status);
+  }
+
+  @Post('batch/delete')
+  batchRemove(@Body() dto: BatchDeleteVocabDto) {
+    return this.vocabService.batchRemove(dto.ids);
   }
 
   @Get(':id')

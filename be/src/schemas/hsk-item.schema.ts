@@ -148,3 +148,5 @@ export class HskItem {
 export const HskItemSchema = SchemaFactory.createForClass(HskItem);
 HskItemSchema.index({ category: 1, order: 1 });
 HskItemSchema.index({ category: 1, lessonId: 1 });
+HskItemSchema.index({ category: 1, status: 1, order: 1 });
+HskItemSchema.index({ category: 1, id: 1 });

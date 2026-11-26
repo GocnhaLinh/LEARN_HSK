@@ -1,7 +1,8 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { json, urlencoded } from 'express';
+import { json, NextFunction, Request, Response, urlencoded } from 'express';
+import { gzip } from 'zlib';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -11,6 +12,39 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const port = config.get<number>('PORT', 3001);
   const corsOrigin = config.get<string>('CORS_ORIGIN', 'http://localhost:5173');
+
+  // Lightweight built-in Gzip compression for JSON payloads >= 1 KB (saves ~80% bandwidth)
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const acceptEncoding = String(req.headers['accept-encoding'] || '');
+    if (!acceptEncoding.includes('gzip')) {
+      return next();
+    }
+
+    const origJson = res.json.bind(res);
+    res.json = ((body: unknown) => {
+      if (res.headersSent || body === undefined) {
+        return origJson(body);
+      }
+      const jsonStr = JSON.stringify(body);
+      if (!jsonStr || jsonStr.length < 1024) {
+        return origJson(body);
+      }
+      gzip(Buffer.from(jsonStr, 'utf8'), { level: 6 }, (err, compressed) => {
+        if (err || res.headersSent) {
+          if (!res.headersSent) origJson(body);
+          return;
+        }
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Encoding', 'gzip');
+        res.setHeader('Vary', 'Accept-Encoding');
+        res.setHeader('Content-Length', String(compressed.length));
+        res.end(compressed);
+      });
+      return res;
+    }) as Response['json'];
+
+    next();
+  });
 
   // Support large PDF/DOCX bulk vocab imports & base64 canvas snapshots
   app.use(json({ limit: '15mb' }));

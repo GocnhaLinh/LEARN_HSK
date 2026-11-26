@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { DatabaseModule } from './database/database.module';
 import { BackupModule } from './modules/backup/backup.module';
+import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { ExercisesModule } from './modules/exercises/exercises.module';
 import { HandwritingModule } from './modules/handwriting/handwriting.module';
@@ -25,10 +26,14 @@ import { VocabModule } from './modules/vocab/vocab.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         uri: config.get<string>('MONGODB_URI', 'mongodb://127.0.0.1:27017/HSK'),
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 8000,
+        socketTimeoutMS: 45000,
       }),
     }),
     DatabaseModule,
     HealthModule,
+    BootstrapModule,
     SeedModule,
     ProfileModule,
     CoursesModule,

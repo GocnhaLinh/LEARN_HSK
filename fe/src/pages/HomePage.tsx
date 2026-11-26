@@ -16,6 +16,30 @@ function formatClock(now: Date) {
   return { dateStr, timeStr };
 }
 
+/** Isolated 1-second clock so HomePage never re-renders on every tick */
+const LiveClockBadges: React.FC = React.memo(() => {
+  const [clock, setClock] = useState(() => formatClock(new Date()));
+
+  useEffect(() => {
+    const id = window.setInterval(() => setClock(formatClock(new Date())), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  return (
+    <>
+      <span className="px-2 sm:px-2.5 py-1 bg-[#111111] text-white font-semibold rounded-[4px] inline-flex items-center gap-1.5 whitespace-nowrap">
+        <Calendar className="w-3.5 h-3.5 text-[#F4C2D7] shrink-0" />
+        <span>{clock.dateStr}</span>
+      </span>
+      <span className="px-2 sm:px-2.5 py-1 bg-[#EFE078] text-[#111111] font-bold t-badge inline-flex items-center gap-1.5 whitespace-nowrap shrink-0">
+        <Clock className="w-3.5 h-3.5 shrink-0" />
+        <span>{clock.timeStr}</span>
+      </span>
+    </>
+  );
+});
+LiveClockBadges.displayName = 'LiveClockBadges';
+
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const {
@@ -28,33 +52,47 @@ export const HomePage: React.FC = () => {
     toggleMissionDone,
   } = useApp();
 
-  const [clock, setClock] = useState(() => formatClock(new Date()));
-
-  useEffect(() => {
-    const id = window.setInterval(() => setClock(formatClock(new Date())), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
   const todayISO = getTodayISO();
   const checkedToday = profile.lastCheckinISO === todayISO;
 
+  // Single O(N) pass over vocab instead of 12 separate .filter() passes
   const stats = useMemo(() => {
-    const mastered = vocab.filter((w) => w.status === 'mastered');
-    const learning = vocab.filter((w) => w.status === 'learning');
-    const review = vocab.filter((w) => w.status === 'review');
-    const fresh = vocab.filter((w) => w.status === 'new');
+    const mastered: typeof vocab = [];
+    const learning: typeof vocab = [];
+    const review: typeof vocab = [];
+    const fresh: typeof vocab = [];
+    const fWords: typeof vocab = [];
+    const fDone: typeof vocab = [];
+    const primAll: typeof vocab = [];
+    const primDone: typeof vocab = [];
+    const interAll: typeof vocab = [];
+    const interDone: typeof vocab = [];
+    let customCount = 0;
+
+    for (const w of vocab) {
+      if (w.status === 'mastered') mastered.push(w);
+      else if (w.status === 'learning') learning.push(w);
+      else if (w.status === 'review') review.push(w);
+      else fresh.push(w);
+
+      if (w.level === profile.focusLevel) {
+        fWords.push(w);
+        if (w.status === 'mastered') fDone.push(w);
+      }
+
+      if (w.level <= 3) {
+        primAll.push(w);
+        if (w.status === 'mastered') primDone.push(w);
+      } else {
+        interAll.push(w);
+        if (w.status === 'mastered') interDone.push(w);
+      }
+
+      if (w.custom) customCount++;
+    }
 
     const fMeta = COURSES_META.find((c) => c.level === profile.focusLevel) || COURSES_META[4];
-    const fWords = vocab.filter((w) => w.level === profile.focusLevel);
-    const fDone = fWords.filter((w) => w.status === 'mastered');
     const fPct = fWords.length ? Math.round((fDone.length / fWords.length) * 100) : 0;
-
-    const primAll = vocab.filter((w) => w.level <= 3);
-    const primDone = primAll.filter((w) => w.status === 'mastered');
-    const interAll = vocab.filter((w) => w.level >= 4);
-    const interDone = interAll.filter((w) => w.status === 'mastered');
-
-    const customCount = vocab.filter((w) => w.custom).length;
 
     return {
       mastered,
@@ -98,7 +136,7 @@ export const HomePage: React.FC = () => {
   const dtPct = Math.min(100, Math.round((profile.todayReviews / profile.dailyTarget) * 100));
   const maxWeeklyVal = Math.max(15, ...profile.weeklyLog);
 
-  const writeSample = vocab.filter((w) => w.level === profile.focusLevel).slice(0, 5);
+  const writeSample = stats.fWords.slice(0, 5);
   const missions: Array<{
     key: keyof MissionsDone;
     badge: string;
@@ -158,14 +196,7 @@ export const HomePage: React.FC = () => {
       {/* Metadata Strip & Daily Check-in */}
       <div className="t-card-flat px-3.5 sm:px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
         <div className="flex items-center justify-between lg:justify-start gap-2 font-mono text-[10px] sm:text-xs min-w-0">
-          <span className="px-2 sm:px-2.5 py-1 bg-[#111111] text-white font-semibold rounded-[4px] inline-flex items-center gap-1.5 whitespace-nowrap">
-            <Calendar className="w-3.5 h-3.5 text-[#F4C2D7] shrink-0" />
-            <span>{clock.dateStr}</span>
-          </span>
-          <span className="px-2 sm:px-2.5 py-1 bg-[#EFE078] text-[#111111] font-bold t-badge inline-flex items-center gap-1.5 whitespace-nowrap shrink-0">
-            <Clock className="w-3.5 h-3.5 shrink-0" />
-            <span>{clock.timeStr}</span>
-          </span>
+          <LiveClockBadges />
           <span className="hidden lg:inline-block px-2.5 py-1 bg-[#F4C2D7] text-[#111111] font-bold t-badge whitespace-nowrap shrink-0">
             ISSUE #3.0 ✨
           </span>
