@@ -37,6 +37,7 @@ export interface BulkImportLessonsResponse {
 
 export interface SubmitExerciseResponse {
   correct: boolean;
+  alreadyCompleted?: boolean;
   correctAnswer: string;
   explanation: string;
   xpEarned: number;

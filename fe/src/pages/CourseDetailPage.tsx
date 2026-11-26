@@ -17,6 +17,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { COURSES_META } from '@/data/defaults';
+import { useWritingStore } from '@/features/writing/stores/writing.store';
 import { useScrollPast } from '@/hooks/useScrollPast';
 import { ExtractedExerciseRow, ExtractedVocabRow, VocabWord } from '@/types';
 import { parseCourseFile } from '@/utils/docParser';
@@ -30,23 +31,34 @@ export const CourseDetailPage: React.FC = () => {
     lessons,
     vocab,
     exercises,
-    scoreSummaries,
     bulkImportWords,
     submitCourseExercise,
-    setWriteQuickPool,
     showToast,
   } = useApp();
+  const setWriteQuickPool = useWritingStore((s) => s.setWriteQuickPool);
 
   const level = Math.min(6, Math.max(1, Number(levelParam) || 5));
   const meta = COURSES_META.find((c) => c.level === level) || COURSES_META[4];
-  const levelScore = scoreSummaries.find((s) => s.level === level);
   const courseExercises = useMemo(
     () => exercises.filter((ex) => ex.level === level),
     [exercises, level],
   );
+  const completedExercisesCount = useMemo(
+    () => courseExercises.filter((ex) => ex.completed).length,
+    [courseExercises],
+  );
+  const exercisePoints = useMemo(
+    () =>
+      courseExercises.reduce(
+        (sum, ex) => sum + (ex.completed ? ex.xpReward || 20 : 0),
+        0,
+      ),
+    [courseExercises],
+  );
   const [exFeedback, setExFeedback] = useState<
     Record<string, { picked: string; correct: boolean; explanation: string }>
   >({});
+  const [submittingEx, setSubmittingEx] = useState<Record<string, boolean>>({});
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewCardRef = useRef<HTMLDivElement | null>(null);
@@ -445,13 +457,10 @@ export const CourseDetailPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] font-bold">
             <span className="px-2.5 py-1 bg-[#EFE078] text-[#111111] t-badge flex items-center gap-1">
               <Trophy className="w-3.5 h-3.5" />
-              Điểm: {levelScore?.totalScore ?? 0}
-            </span>
-            <span className="px-2.5 py-1 bg-[#F4C2D7] text-[#111111] t-badge">
-              Kỷ lục: {levelScore?.highScore ?? 0} • Combo {levelScore?.bestCombo ?? 0}x
+              Điểm bài tập: {exercisePoints} XP
             </span>
             <span className="px-2.5 py-1 bg-[#CBEAD8] text-[#111111] t-badge">
-              Bài tập: {courseExercises.filter((e) => e.completed).length}/{courseExercises.length}
+              Bài tập: {completedExercisesCount}/{courseExercises.length}
             </span>
           </div>
         </div>
@@ -477,31 +486,46 @@ export const CourseDetailPage: React.FC = () => {
                     <p className="text-sm font-medium leading-relaxed">{ex.question}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                       {ex.options.map((opt) => {
+                        const isDone = Boolean(ex.completed || fb?.correct);
+                        const isBusy = Boolean(submittingEx[ex.id]);
+                        const isCorrectOpt =
+                          isDone && opt.trim() === String(ex.correctAnswer || '').trim();
                         const isPicked = fb?.picked === opt;
-                        const btnBg = isPicked
-                          ? fb.correct
-                            ? 'bg-[#CBEAD8]'
-                            : 'bg-[#F4C2D7]'
-                          : 'bg-[#F8F6F1] hover:bg-[#EFE078]/60';
+                        const btnBg = isCorrectOpt
+                          ? 'bg-[#CBEAD8] ring-2 ring-[#141414]'
+                          : isPicked
+                            ? fb.correct
+                              ? 'bg-[#CBEAD8]'
+                              : 'bg-[#F4C2D7]'
+                            : isDone
+                              ? 'bg-[#F8F6F1] opacity-55'
+                              : 'bg-[#F8F6F1] hover:bg-[#EFE078]/60';
                         return (
                           <button
                             key={opt}
                             type="button"
+                            disabled={isDone || isBusy}
                             onClick={async (e) => {
-                              const res = await submitCourseExercise(ex.id, opt, {
-                                clientX: e.clientX,
-                                clientY: e.clientY,
-                              });
-                              setExFeedback((prev) => ({
-                                ...prev,
-                                [ex.id]: {
-                                  picked: opt,
-                                  correct: res.correct,
-                                  explanation: res.explanation,
-                                },
-                              }));
+                              if (isDone || isBusy) return;
+                              setSubmittingEx((prev) => ({ ...prev, [ex.id]: true }));
+                              try {
+                                const res = await submitCourseExercise(ex.id, opt, {
+                                  clientX: e.clientX,
+                                  clientY: e.clientY,
+                                });
+                                setExFeedback((prev) => ({
+                                  ...prev,
+                                  [ex.id]: {
+                                    picked: opt,
+                                    correct: res.correct,
+                                    explanation: res.explanation,
+                                  },
+                                }));
+                              } finally {
+                                setSubmittingEx((prev) => ({ ...prev, [ex.id]: false }));
+                              }
                             }}
-                            className={`t-btn px-3 py-2 flex items-center justify-center text-center text-xs font-semibold text-[#111111] ${btnBg}`}
+                            className={`t-btn px-3 py-2 flex items-center justify-center text-center text-xs font-semibold text-[#111111] disabled:cursor-default disabled:transform-none ${btnBg}`}
                           >
                             {opt}
                           </button>

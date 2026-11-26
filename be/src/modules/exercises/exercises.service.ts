@@ -1,8 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { HskCollectionsService } from '../../database/hsk-collections.service';
-import { ScoreRecord, ScoreRecordDocument } from '../../schemas/score.schema';
 import { ProfileService } from '../profile/profile.service';
 import { CreateExerciseDto, SubmitExerciseDto } from './exercises.dto';
 
@@ -10,7 +7,6 @@ import { CreateExerciseDto, SubmitExerciseDto } from './exercises.dto';
 export class ExercisesService {
   constructor(
     private readonly hskCollections: HskCollectionsService,
-    @InjectModel(ScoreRecord.name) private readonly scoreModel: Model<ScoreRecordDocument>,
     private readonly profileService: ProfileService,
   ) {}
 
@@ -65,58 +61,59 @@ export class ExercisesService {
     const exercise = found.doc;
     const correct = dto.answer.trim() === String(exercise.correctAnswer || '').trim();
     const xpReward = exercise.xpReward || 20;
-    const scorePoints = correct ? xpReward : 0;
 
     let profile = null;
     let updatedExercise = exercise;
+    let xpEarned = 0;
+    let alreadyCompleted = !!exercise.completed;
 
     if (correct) {
-      const alreadyDone = !!exercise.completed;
-      updatedExercise = await found.model
-        .findOneAndUpdate({ id, category: 'exercise' }, { $set: { completed: true } }, { new: true })
+      // Atomic conditional update: only the very first completion claims XP & score
+      const claimed = await found.model
+        .findOneAndUpdate(
+          { id, category: 'exercise', completed: { $ne: true } },
+          { $set: { completed: true } },
+          { new: true },
+        )
         .lean()
         .exec();
 
-      // Upsert per-HSK course_summary competition stats in HSK{level}
-      await found.model.findOneAndUpdate(
-        { category: 'course_summary', level: found.level },
-        {
-          $setOnInsert: {
-            id: `hsk${found.level}_summary`,
-            category: 'course_summary',
-            level: found.level,
-            code: `HSK ${found.level}`,
-            order: 0,
-          },
-          $inc: {
-            xpEarned: xpReward,
-            totalScore: scorePoints,
-            exercisesCompleted: alreadyDone ? 0 : 1,
-          },
-        },
-        { upsert: true },
-      );
+      if (claimed) {
+        updatedExercise = claimed;
+        xpEarned = xpReward;
+        alreadyCompleted = false;
 
-      // Record into global scores collection
-      await this.scoreModel.create({
-        id: `score_ex_${Date.now()}`,
-        level: found.level,
-        mode: 'exercise',
-        score: scorePoints,
-        combo: 1,
-        xpEarned: xpReward,
-        detail: `Hoàn thành bài tập: ${exercise.title}`,
-        playedAt: new Date().toISOString(),
-      });
+        // Upsert per-HSK exercise completion count in HSK{level} (without writing to `scores` collection)
+        await found.model.findOneAndUpdate(
+          { category: 'course_summary', level: found.level },
+          {
+            $setOnInsert: {
+              id: `hsk${found.level}_summary`,
+              category: 'course_summary',
+              level: found.level,
+              code: `HSK ${found.level}`,
+              order: 0,
+            },
+            $inc: {
+              xpEarned: xpReward,
+              exercisesCompleted: 1,
+            },
+          },
+          { upsert: true },
+        );
 
-      profile = await this.profileService.recordReview(xpReward, false);
+        profile = await this.profileService.recordReview(xpReward, false);
+      } else {
+        alreadyCompleted = true;
+      }
     }
 
     return {
       correct,
+      alreadyCompleted,
       correctAnswer: exercise.correctAnswer,
       explanation: exercise.explanation || '',
-      xpEarned: correct ? xpReward : 0,
+      xpEarned,
       exercise: updatedExercise,
       profile,
     };
