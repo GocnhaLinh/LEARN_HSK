@@ -241,14 +241,14 @@ export const WritingPage: React.FC = () => {
           <h2 className="font-serif font-bold text-2xl">Luyện viết Chữ Hán</h2>
         </div>
 
-        <div className="inline-flex gap-1.5 font-mono text-xs">
+        <div className="grid grid-cols-2 sm:inline-flex gap-1.5 font-mono text-xs">
           <button
             type="button"
             onClick={() => navigate(`/writing/hanzi/${encodeURIComponent(activeChar)}`)}
             className={
               !isCanvasMode
-                ? 't-btn px-3.5 py-2 bg-[#111111] text-white font-bold'
-                : 't-btn px-3.5 py-2 bg-white text-[#111111] font-bold'
+                ? 't-btn px-3 sm:px-3.5 py-2 bg-[#111111] text-white font-bold text-center'
+                : 't-btn px-3 sm:px-3.5 py-2 bg-white text-[#111111] font-bold text-center'
             }
           >
             Đồ nét chuẩn (HanziWriter)
@@ -258,8 +258,8 @@ export const WritingPage: React.FC = () => {
             onClick={() => navigate('/writing/canvas')}
             className={
               isCanvasMode
-                ? 't-btn px-3.5 py-2 bg-[#111111] text-white font-bold'
-                : 't-btn px-3.5 py-2 bg-white text-[#111111] font-bold'
+                ? 't-btn px-3 sm:px-3.5 py-2 bg-[#111111] text-white font-bold text-center'
+                : 't-btn px-3 sm:px-3.5 py-2 bg-white text-[#111111] font-bold text-center'
             }
           >
             Viết tay tự do (Canvas)
@@ -275,7 +275,7 @@ export const WritingPage: React.FC = () => {
               <label htmlFor="write-char-input" className="font-mono text-xs font-bold uppercase block">
                 Nhập chữ Hán bất kỳ để đồ nét
               </label>
-              <div className="flex gap-2">
+              <div className="flex items-stretch gap-2 min-w-0">
                 <input
                   id="write-char-input"
                   type="text"
@@ -286,12 +286,12 @@ export const WritingPage: React.FC = () => {
                     if (e.key === 'Enter') handleLoadChar();
                   }}
                   placeholder="VD: 学, 爱, 茶, 汉..."
-                  className="flex-1 px-3 py-2 bg-[#F8F6F1] border-[1.5px] border-[#141414] rounded font-serifcn text-lg outline-none"
+                  className="flex-1 min-w-0 w-full px-3 py-2 bg-[#F8F6F1] border-[1.5px] border-[#141414] rounded font-serifcn text-lg outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleLoadChar}
-                  className="t-btn-black px-4 py-2 font-mono text-xs font-bold"
+                  className="t-btn-black px-4 py-2 font-mono text-xs font-bold shrink-0 whitespace-nowrap"
                 >
                   Tải chữ
                 </button>

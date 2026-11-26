@@ -52,13 +52,17 @@
   --accent-lav: #E4D7FA;
 }
 
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   background-color: var(--bg-page);
   color: var(--text-main);
   font-family: 'Be Vietnam Pro', system-ui, sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
 }
 
 /* Core Theme Utility Classes with Cute Squishy / Jelly Interactions */
@@ -287,8 +291,8 @@ body {
 /* Traditional Mi-Zi-Ge (米字格) Grid */
 .mizige-grid {
   position: relative;
-  width: 280px;
-  height: 280px;
+  width: min(280px, 100%);
+  aspect-ratio: 1 / 1;
   background-color: #FFFEFA;
   border: 2px solid #141414;
   touch-action: none;

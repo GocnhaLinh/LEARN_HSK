@@ -25,7 +25,7 @@ export const MascotWidget: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-24 xl:bottom-5 right-3 sm:right-5 z-40 flex flex-col items-end gap-1.5 pointer-events-none">
+    <div className="hidden md:flex fixed bottom-24 xl:bottom-5 right-3 sm:right-5 z-40 flex-col items-end gap-1.5 pointer-events-none">
       <div className="pointer-events-auto max-w-[205px] px-3 py-2 bg-white text-[#141414] border-[1.5px] border-[#141414] rounded-2xl rounded-br-sm shadow-[3px_3px_0px_#141414] text-[11px] sm:text-xs font-semibold leading-snug transition-all duration-300">
         {mascotSay}
       </div>
