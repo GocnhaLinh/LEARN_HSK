@@ -263,9 +263,9 @@ export const FlashcardPage: React.FC = () => {
                           const firstChar = Array.from(word.hanzi)[0];
                           navigate(`/writing/hanzi/${encodeURIComponent(firstChar)}`);
                         }}
-                        className="t-btn px-2.5 py-1.5 bg-white text-[#111111] font-mono text-[11px] font-bold flex items-center gap-1 hover:bg-[#F4C2D7]"
+                        className="t-btn px-3 py-1.5 bg-white text-[#111111] font-mono text-[11px] font-bold inline-flex items-center gap-1 whitespace-nowrap shrink-0 hover:bg-[#F4C2D7]"
                       >
-                        <PenTool className="w-3.5 h-3.5" />
+                        <PenTool className="w-3.5 h-3.5 shrink-0" />
                         <span>Tập viết</span>
                       </button>
                     </div>
@@ -316,30 +316,42 @@ export const FlashcardPage: React.FC = () => {
             </div>
 
             {/* 3 SRS Rating Buttons */}
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
               <button
                 type="button"
                 onClick={(e) => handleRate('review', { clientX: e.clientX, clientY: e.clientY })}
-                className="t-btn py-3 px-2 bg-[#F4C2D7] text-[#111111] flex flex-col items-center justify-center hover:brightness-95"
+                className="srs-btn py-2.5 sm:py-3 px-2 bg-[#F4C2D7] text-[#111111] flex flex-col items-center justify-center gap-0.5"
               >
-                <span className="text-xs sm:text-sm font-bold">Cần chú ý</span>
-                <span className="font-mono text-[10px] font-semibold opacity-80">+5 XP • Phím 1</span>
+                <span className="text-xs sm:text-sm font-bold leading-tight whitespace-nowrap">
+                  Cần chú ý
+                </span>
+                <span className="font-mono text-[10px] font-semibold text-[#3B1D2A] whitespace-nowrap">
+                  +5 XP<span className="hidden sm:inline"> • Phím 1</span>
+                </span>
               </button>
               <button
                 type="button"
                 onClick={(e) => handleRate('learning', { clientX: e.clientX, clientY: e.clientY })}
-                className="t-btn py-3 px-2 bg-[#EFE078] text-[#111111] flex flex-col items-center justify-center hover:brightness-95"
+                className="srs-btn py-2.5 sm:py-3 px-2 bg-[#EFE078] text-[#111111] flex flex-col items-center justify-center gap-0.5"
               >
-                <span className="text-xs sm:text-sm font-bold">Đang học</span>
-                <span className="font-mono text-[10px] font-semibold opacity-80">+10 XP • Phím 2</span>
+                <span className="text-xs sm:text-sm font-bold leading-tight whitespace-nowrap">
+                  Đang học
+                </span>
+                <span className="font-mono text-[10px] font-semibold text-[#3A320C] whitespace-nowrap">
+                  +10 XP<span className="hidden sm:inline"> • Phím 2</span>
+                </span>
               </button>
               <button
                 type="button"
                 onClick={(e) => handleRate('mastered', { clientX: e.clientX, clientY: e.clientY })}
-                className="t-btn-black py-3 px-2 flex flex-col items-center justify-center"
+                className="srs-btn srs-btn-dark py-2.5 sm:py-3 px-2 bg-[#111111] text-white flex flex-col items-center justify-center gap-0.5"
               >
-                <span className="text-xs sm:text-sm font-bold">Đã thuộc ✓</span>
-                <span className="font-mono text-[10px] text-[#EFE078]">+20 XP • Phím 3</span>
+                <span className="text-xs sm:text-sm font-bold leading-tight whitespace-nowrap">
+                  Đã thuộc ✓
+                </span>
+                <span className="font-mono text-[10px] font-semibold text-[#EFE078] whitespace-nowrap">
+                  +20 XP<span className="hidden sm:inline"> • Phím 3</span>
+                </span>
               </button>
             </div>
 

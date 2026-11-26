@@ -120,6 +120,31 @@ body {
   box-shadow: none;
 }
 
+/* SRS Rating Buttons (clean rounded card shape, no hover opacity/dimming) */
+.srs-btn {
+  border: 1.5px solid #141414;
+  border-radius: 10px;
+  box-shadow: 2px 2px 0px #141414;
+  opacity: 1;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+}
+[data-theme="diary"] .srs-btn {
+  border-color: #D8BED5;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(42, 31, 45, 0.10);
+}
+[data-theme="diary"] .srs-btn-dark {
+  border-color: #111111;
+}
+.srs-btn:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+.srs-btn:active {
+  transform: scale(0.97);
+  box-shadow: none;
+}
+
 .t-badge {
   border: 1.5px solid var(--border-color);
   border-radius: var(--radius-badge);
