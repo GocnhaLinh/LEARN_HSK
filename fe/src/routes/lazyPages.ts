@@ -1,4 +1,4 @@
-import { lazyNamed } from '../utils/lazyLoad';
+import { lazyNamed } from '@/lib/lazy-load';
 
 /**
  * Centralized lazy-loaded pages — import directly in App.tsx or preload from navigation.

@@ -10,8 +10,11 @@ import React, {
 import {
   DEFAULT_PROFILE,
   DEFAULT_WRITE_QUICK_POOL,
-} from "../data/defaults";
-import { api } from "../services/api";
+} from "@/data/defaults";
+import { getTodayISO } from "@/lib/date-utils";
+import { spawnConfetti, spawnFloatingXP } from "@/lib/fx-utils";
+import { api } from "@/services/api";
+import { useToastStore } from "@/stores/toast.store";
 import {
   ExerciseItem,
   ExtractedExerciseRow,
@@ -23,13 +26,11 @@ import {
   MissionsDone,
   ScoreHistoryItem,
   ThemeMode,
-  ToastItem,
   ToastVariant,
   UserProfile,
   VocabStatus,
   VocabWord,
-} from "../types";
-import { getTodayISO, spawnConfetti, spawnFloatingXP } from "../utils/helpers";
+} from "@/types";
 
 const STORAGE_KEY = "hsk_quest_30_clean_v4";
 
@@ -51,11 +52,6 @@ export interface VocabFormInput {
   note?: string;
   exampleZh?: string;
   exampleVi?: string;
-}
-
-interface ToastContextValue {
-  toasts: ToastItem[];
-  dismissToast: (id: string) => void;
 }
 
 interface AppContextValue {
@@ -138,7 +134,6 @@ interface AppContextValue {
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
-const ToastContext = createContext<ToastContextValue | null>(null);
 
 function readLocalCache() {
   try {
@@ -206,7 +201,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [writeQuickPool, setWriteQuickPool] = useState<string[]>(
     DEFAULT_WRITE_QUICK_POOL,
   );
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [apiConnected, setApiConnected] = useState<boolean>(false);
 
   // Refs for stable callbacks (avoids tearing down callbacks / re-rendering consumers on data edits)
@@ -351,71 +345,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  const toastTimersRef = useRef<Map<string, number>>(new Map());
-
-  useEffect(() => {
-    const timers = toastTimersRef.current;
-    return () => {
-      timers.forEach((timerId) => window.clearTimeout(timerId));
-      timers.clear();
-    };
-  }, []);
-
   const dismissToast = useCallback((id: string) => {
-    const timer = toastTimersRef.current.get(id);
-    if (timer) {
-      window.clearTimeout(timer);
-      toastTimersRef.current.delete(id);
-    }
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    useToastStore.getState().dismissToast(id);
   }, []);
 
   const showToast = useCallback(
     (message: string, variant: ToastVariant = "dark") => {
-      const MAX_TOASTS = 2;
-      const getGroupKey = (msg: string) => {
-        if (msg.startsWith("Đã chuyển sang giao diện")) return "theme";
-        if (msg.includes("Đĩa CD")) return "cd";
-        if (msg.startsWith("Đã đổi màu mực")) return "ink";
-        if (msg.startsWith("Bạn đã điểm danh")) return "checkin";
-        return msg;
-      };
-
-      const id = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      const groupKey = getGroupKey(message);
-
-      setToasts((prev) => {
-        const filtered = prev.filter((t) => {
-          const sameGroup = getGroupKey(t.message) === groupKey;
-          if (sameGroup) {
-            const oldTimer = toastTimersRef.current.get(t.id);
-            if (oldTimer) {
-              window.clearTimeout(oldTimer);
-              toastTimersRef.current.delete(t.id);
-            }
-          }
-          return !sameGroup;
-        });
-
-        const next = [...filtered, { id, message, variant }];
-        while (next.length > MAX_TOASTS) {
-          const evicted = next.shift();
-          if (evicted) {
-            const oldTimer = toastTimersRef.current.get(evicted.id);
-            if (oldTimer) {
-              window.clearTimeout(oldTimer);
-              toastTimersRef.current.delete(evicted.id);
-            }
-          }
-        }
-        return next;
-      });
-
-      const timerId = window.setTimeout(() => {
-        toastTimersRef.current.delete(id);
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 2200);
-      toastTimersRef.current.set(id, timerId);
+      useToastStore.getState().showToast(message, variant);
     },
     [],
   );
@@ -1202,11 +1138,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [showToast],
   );
 
-  const toastCtxValue = useMemo(
-    () => ({ toasts, dismissToast }),
-    [toasts, dismissToast],
-  );
-
   const appCtxValue = useMemo<AppContextValue>(
     () => ({
       profile,
@@ -1285,9 +1216,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AppContext.Provider value={appCtxValue}>
-      <ToastContext.Provider value={toastCtxValue}>
-        {children}
-      </ToastContext.Provider>
+      {children}
     </AppContext.Provider>
   );
 };
@@ -1295,11 +1224,5 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 export function useApp(): AppContextValue {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used inside AppProvider");
-  return ctx;
-}
-
-export function useToasts(): ToastContextValue {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error("useToasts must be used inside AppProvider");
   return ctx;
 }

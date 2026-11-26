@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { Layout } from './components/Layout';
-import { AppProvider } from './context/AppContext';
+import { Layout } from '@/components/layout/Layout';
+import { AppProvider } from '@/context/AppContext';
 import {
   CourseDetailPage,
   CoursesPage,
@@ -11,7 +11,7 @@ import {
   NotesPage,
   VocabPage,
   WritingPage,
-} from './routes/lazyPages';
+} from '@/routes/lazyPages';
 
 export const App: React.FC = () => {
   return (

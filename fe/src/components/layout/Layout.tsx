@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { ToastContainer } from '@/components/feedback/ToastContainer';
 import { BottomDock } from './BottomDock';
 import { Navbar } from './Navbar';
 import { ScrollToTopButton } from './ScrollToTopButton';
-import { ToastContainer } from './ToastContainer';
 
 function getPageTransitionKey(pathname: string): string {
   if (pathname === '/') return 'home';
