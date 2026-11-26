@@ -11,8 +11,10 @@ import {
   DEFAULT_PROFILE,
   DEFAULT_WRITE_QUICK_POOL,
 } from "@/data/defaults";
+import { notesKeys } from "@/features/notes/hooks/useNotes";
 import { getTodayISO } from "@/lib/date-utils";
 import { spawnConfetti, spawnFloatingXP } from "@/lib/fx-utils";
+import { queryClient } from "@/lib/query-client";
 import { api } from "@/services/api";
 import { useToastStore } from "@/stores/toast.store";
 import {
@@ -61,10 +63,12 @@ interface AppContextValue {
   exercises: ExerciseItem[];
   scoreSummaries: LevelScoreSummary[];
   scoreHistory: ScoreHistoryItem[];
-  notes: MindNote[];
   handwritingGallery: HandwritingItem[];
   writeQuickPool: string[];
   setWriteQuickPool: React.Dispatch<React.SetStateAction<string[]>>;
+  syncProfile: (
+    next: Partial<UserProfile> | ((prev: UserProfile) => UserProfile),
+  ) => void;
   apiConnected: boolean;
   showToast: (msg: string, variant?: ToastVariant) => void;
   dismissToast: (id: string) => void;
@@ -119,16 +123,6 @@ interface AppContextValue {
     correctAnswer: string;
     explanation: string;
   }>;
-  saveNote: (
-    payload: {
-      id?: string | null;
-      title: string;
-      tag: string;
-      content: string;
-    },
-    ev?: ClickCoords,
-  ) => Promise<void>;
-  deleteNote: (id: string) => Promise<void>;
   exportDataJSON: () => Promise<void>;
   importDataJSON: (rawJson: string) => Promise<void>;
 }
@@ -190,9 +184,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const [scoreSummaries, setScoreSummaries] = useState<LevelScoreSummary[]>([]);
   const [scoreHistory, setScoreHistory] = useState<ScoreHistoryItem[]>([]);
-  const [notes, setNotes] = useState<MindNote[]>(() =>
-    Array.isArray(cached?.notes) ? cached.notes : [],
-  );
   const [handwritingGallery, setHandwritingGallery] = useState<
     HandwritingItem[]
   >(() =>
@@ -203,6 +194,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const [apiConnected, setApiConnected] = useState<boolean>(false);
 
+  const syncProfile = useCallback(
+    (next: Partial<UserProfile> | ((prev: UserProfile) => UserProfile)) => {
+      if (typeof next === "function") {
+        setProfile(next);
+      } else {
+        setProfile((prev) => ({ ...prev, ...next }));
+      }
+    },
+    [],
+  );
+
   // Refs for stable callbacks (avoids tearing down callbacks / re-rendering consumers on data edits)
   const profileRef = useRef(profile);
   profileRef.current = profile;
@@ -212,8 +214,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   vocabRef.current = vocab;
   const exercisesRef = useRef(exercises);
   exercisesRef.current = exercises;
-  const notesRef = useRef(notes);
-  notesRef.current = notes;
 
   // Sync theme attribute to <html>
   useEffect(() => {
@@ -232,7 +232,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
               ...profile,
               lessons,
               vocab,
-              notes,
+              notes: queryClient.getQueryData<MindNote[]>(notesKeys.list) || [],
               // Cap cached base64 snapshots in localStorage to avoid exceeding 5MB quota
               handwritingGallery: handwritingGallery.slice(0, 6),
             }),
@@ -254,7 +254,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         (window as any).cancelIdleCallback(idleId);
       }
     };
-  }, [profile, lessons, vocab, notes, handwritingGallery]);
+  }, [profile, lessons, vocab, handwritingGallery]);
 
   // Initial fetch from NestJS + MongoDB backend (single gzipped /bootstrap call with legacy fallback)
   useEffect(() => {
@@ -292,7 +292,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       if (Array.isArray(data.exercises)) setExercises(data.exercises);
       if (data.scores?.byLevel) setScoreSummaries(data.scores.byLevel);
       if (data.scores?.history) setScoreHistory(data.scores.history);
-      if (Array.isArray(data.notes)) setNotes(data.notes);
+      if (Array.isArray(data.notes)) {
+        queryClient.setQueryData<MindNote[]>(notesKeys.list, data.notes);
+      }
       if (Array.isArray(data.handwriting)) setHandwritingGallery(data.handwriting);
       setApiConnected(true);
     };
@@ -989,88 +991,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [refreshScores, showToast, triggerXpEffects],
   );
 
-  const saveNote = useCallback(
-    async (
-      payload: {
-        id?: string | null;
-        title: string;
-        tag: string;
-        content: string;
-      },
-      ev?: ClickCoords,
-    ) => {
-      const title = payload.title.trim();
-      const content = payload.content.trim();
-      if (!title || !content) {
-        showToast("Vui lòng nhập đủ tiêu đề và nội dung ghi chú.", "pink");
-        return;
-      }
-
-      if (payload.id) {
-        setNotes((prev) =>
-          prev.map((n) =>
-            n.id === payload.id
-              ? { ...n, title, tag: payload.tag, content }
-              : n,
-          ),
-        );
-        showToast("Đã cập nhật ghi chú");
-        try {
-          await api.updateNote(payload.id, {
-            title,
-            tag: payload.tag,
-            content,
-          });
-          setApiConnected(true);
-        } catch {
-          // Offline fallback
-        }
-      } else {
-        const optimistic: MindNote = {
-          id: "note_" + Date.now(),
-          title,
-          tag: payload.tag,
-          content,
-          date: new Date().toLocaleDateString("vi-VN"),
-        };
-        setNotes((prev) => [optimistic, ...prev]);
-        setProfile((prev) => ({ ...prev, xp: prev.xp + 10 }));
-        triggerXpEffects(10, "Đã lưu ghi chú mới", ev);
-        try {
-          const res = await api.createNote({
-            title,
-            tag: payload.tag,
-            content,
-          });
-          if (res?.note) {
-            setNotes((prev) =>
-              prev.map((n) => (n.id === optimistic.id ? res.note : n)),
-            );
-          }
-          if (res?.profile) setProfile((prev) => ({ ...prev, ...res.profile }));
-          setApiConnected(true);
-        } catch {
-          // Offline fallback
-        }
-      }
-    },
-    [showToast, triggerXpEffects],
-  );
-
-  const deleteNote = useCallback(
-    async (id: string) => {
-      setNotes((prev) => prev.filter((n) => n.id !== id));
-      showToast("Đã xóa ghi chú");
-      try {
-        await api.deleteNote(id);
-        setApiConnected(true);
-      } catch {
-        // Offline fallback
-      }
-    },
-    [showToast],
-  );
-
   const exportDataJSON = useCallback(async () => {
     const p = profileRef.current;
     let payload: any = {
@@ -1081,7 +1001,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       weeklyLog: p.weeklyLog,
       lessons: lessonsRef.current,
       vocab: vocabRef.current,
-      notes: notesRef.current,
+      notes: queryClient.getQueryData<MindNote[]>(notesKeys.list) || [],
     };
     try {
       payload = await api.exportBackup();
@@ -1108,7 +1028,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           setLessons(parsed.lessons);
         if (Array.isArray(parsed.vocab) && parsed.vocab.length > 0)
           setVocab(parsed.vocab);
-        if (Array.isArray(parsed.notes)) setNotes(parsed.notes);
+        if (Array.isArray(parsed.notes)) {
+          queryClient.setQueryData<MindNote[]>(notesKeys.list, parsed.notes);
+        }
         setProfile((prev) => ({
           ...prev,
           xp: typeof parsed.xp === "number" ? parsed.xp : prev.xp,
@@ -1146,10 +1068,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       exercises,
       scoreSummaries,
       scoreHistory,
-      notes,
       handwritingGallery,
       writeQuickPool,
       setWriteQuickPool,
+      syncProfile,
       apiConnected,
       showToast,
       dismissToast,
@@ -1171,8 +1093,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       deleteHandwritingItem,
       recordGameWin,
       submitCourseExercise,
-      saveNote,
-      deleteNote,
       exportDataJSON,
       importDataJSON,
     }),
@@ -1183,9 +1103,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       exercises,
       scoreSummaries,
       scoreHistory,
-      notes,
       handwritingGallery,
       writeQuickPool,
+      syncProfile,
       apiConnected,
       showToast,
       dismissToast,
@@ -1207,8 +1127,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       deleteHandwritingItem,
       recordGameWin,
       submitCourseExercise,
-      saveNote,
-      deleteNote,
       exportDataJSON,
       importDataJSON,
     ],
