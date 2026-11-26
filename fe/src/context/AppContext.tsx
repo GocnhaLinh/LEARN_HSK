@@ -7,11 +7,9 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  DEFAULT_PROFILE,
-  DEFAULT_WRITE_QUICK_POOL,
-} from "@/data/defaults";
+import { DEFAULT_PROFILE } from "@/data/defaults";
 import { notesKeys } from "@/features/notes/hooks/useNotes";
+import { handwritingKeys } from "@/features/writing/hooks/useHandwriting";
 import { getTodayISO } from "@/lib/date-utils";
 import { spawnConfetti, spawnFloatingXP } from "@/lib/fx-utils";
 import { queryClient } from "@/lib/query-client";
@@ -63,9 +61,6 @@ interface AppContextValue {
   exercises: ExerciseItem[];
   scoreSummaries: LevelScoreSummary[];
   scoreHistory: ScoreHistoryItem[];
-  handwritingGallery: HandwritingItem[];
-  writeQuickPool: string[];
-  setWriteQuickPool: React.Dispatch<React.SetStateAction<string[]>>;
   syncProfile: (
     next: Partial<UserProfile> | ((prev: UserProfile) => UserProfile),
   ) => void;
@@ -96,13 +91,6 @@ interface AppContextValue {
     autoGenerateExercises?: boolean;
     extractedExercises?: ExtractedExerciseRow[];
   }) => Promise<void>;
-  recordHanziQuizComplete: (char: string) => Promise<void>;
-  saveHandwritingSnapshot: (
-    img: string,
-    caption: string,
-    ev?: ClickCoords,
-  ) => Promise<void>;
-  deleteHandwritingItem: (id: string) => Promise<void>;
   recordGameWin: (
     xpAmount: number,
     label: string,
@@ -184,14 +172,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const [scoreSummaries, setScoreSummaries] = useState<LevelScoreSummary[]>([]);
   const [scoreHistory, setScoreHistory] = useState<ScoreHistoryItem[]>([]);
-  const [handwritingGallery, setHandwritingGallery] = useState<
-    HandwritingItem[]
-  >(() =>
-    Array.isArray(cached?.handwritingGallery) ? cached.handwritingGallery : [],
-  );
-  const [writeQuickPool, setWriteQuickPool] = useState<string[]>(
-    DEFAULT_WRITE_QUICK_POOL,
-  );
   const [apiConnected, setApiConnected] = useState<boolean>(false);
 
   const syncProfile = useCallback(
@@ -214,6 +194,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   vocabRef.current = vocab;
   const exercisesRef = useRef(exercises);
   exercisesRef.current = exercises;
+  const submittingExIdsRef = useRef<Set<string>>(new Set());
 
   // Sync theme attribute to <html>
   useEffect(() => {
@@ -234,7 +215,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
               vocab,
               notes: queryClient.getQueryData<MindNote[]>(notesKeys.list) || [],
               // Cap cached base64 snapshots in localStorage to avoid exceeding 5MB quota
-              handwritingGallery: handwritingGallery.slice(0, 6),
+              handwritingGallery: (
+                queryClient.getQueryData<HandwritingItem[]>(handwritingKeys.list) || []
+              ).slice(0, 6),
             }),
           );
         } catch {
@@ -254,7 +237,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         (window as any).cancelIdleCallback(idleId);
       }
     };
-  }, [profile, lessons, vocab, handwritingGallery]);
+  }, [profile, lessons, vocab]);
 
   // Initial fetch from NestJS + MongoDB backend (single gzipped /bootstrap call with legacy fallback)
   useEffect(() => {
@@ -295,7 +278,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       if (Array.isArray(data.notes)) {
         queryClient.setQueryData<MindNote[]>(notesKeys.list, data.notes);
       }
-      if (Array.isArray(data.handwriting)) setHandwritingGallery(data.handwriting);
+      if (Array.isArray(data.handwriting)) {
+        queryClient.setQueryData<HandwritingItem[]>(
+          handwritingKeys.list,
+          data.handwriting,
+        );
+      }
       setApiConnected(true);
     };
 
@@ -310,7 +298,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       try {
-        const [p, l, v, ex, sc, n, hw] = await Promise.all([
+        const results = await Promise.allSettled([
           api.getProfile(),
           api.getLessons(),
           api.getVocab(),
@@ -320,14 +308,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           api.getHandwriting(),
         ]);
         if (!active) return;
+
+        const [pRes, lRes, vRes, exRes, scRes, nRes, hwRes] = results;
+        const anySuccess = results.some((r) => r.status === "fulfilled");
+        if (!anySuccess) {
+          setApiConnected(false);
+          return;
+        }
+
         applyHydratedData({
-          profile: p,
-          lessons: l,
-          vocab: v,
-          exercises: ex,
-          scores: sc,
-          notes: n,
-          handwriting: hw,
+          profile: pRes.status === "fulfilled" ? pRes.value : profileRef.current,
+          lessons: lRes.status === "fulfilled" ? lRes.value : undefined,
+          vocab: vRes.status === "fulfilled" ? vRes.value : undefined,
+          exercises: exRes.status === "fulfilled" ? exRes.value : undefined,
+          scores: scRes.status === "fulfilled" ? scRes.value : undefined,
+          notes: nRes.status === "fulfilled" ? nRes.value : undefined,
+          handwriting: hwRes.status === "fulfilled" ? hwRes.value : undefined,
         });
       } catch {
         if (active) setApiConnected(false);
@@ -798,89 +794,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [triggerXpEffects, refreshScores],
   );
 
-  const recordHanziQuizComplete = useCallback(
-    async (char: string) => {
-      setProfile((prev) => {
-        const nextCount = prev.writtenCountToday + 1;
-        return {
-          ...prev,
-          writtenCountToday: nextCount,
-          xp: prev.xp + 10,
-          missionsDone:
-            nextCount >= 5
-              ? { ...prev.missionsDone, m3: true }
-              : prev.missionsDone,
-        };
-      });
-      triggerXpEffects(10, `Hoàn thành đồ nét chữ "${char}"`);
-      try {
-        const updated = await api.recordWritten(10);
-        setProfile((prev) => ({ ...prev, ...updated }));
-        setApiConnected(true);
-      } catch {
-        // Offline fallback
-      }
-    },
-    [triggerXpEffects],
-  );
-
-  const saveHandwritingSnapshot = useCallback(
-    async (img: string, captionRaw: string, ev?: ClickCoords) => {
-      const caption =
-        captionRaw.trim() ||
-        `Bài viết ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
-      const optimistic: HandwritingItem = {
-        id: "hw_" + Date.now(),
-        img,
-        caption,
-        date: new Date().toLocaleDateString("vi-VN"),
-      };
-
-      setHandwritingGallery((prev) => [optimistic, ...prev].slice(0, 15));
-      setProfile((prev) => {
-        const nextCount = prev.writtenCountToday + 1;
-        return {
-          ...prev,
-          writtenCountToday: nextCount,
-          xp: prev.xp + 10,
-          missionsDone:
-            nextCount >= 5
-              ? { ...prev.missionsDone, m3: true }
-              : prev.missionsDone,
-        };
-      });
-      triggerXpEffects(10, "Đã lưu bài viết tay vào sổ tay", ev);
-
-      try {
-        const res = await api.createHandwriting({ img, caption });
-        if (res?.item) {
-          setHandwritingGallery((prev) =>
-            prev.map((item) => (item.id === optimistic.id ? res.item : item)),
-          );
-        }
-        if (res?.profile) setProfile((prev) => ({ ...prev, ...res.profile }));
-        setApiConnected(true);
-      } catch {
-        // Offline fallback
-      }
-    },
-    [triggerXpEffects],
-  );
-
-  const deleteHandwritingItem = useCallback(
-    async (id: string) => {
-      setHandwritingGallery((prev) => prev.filter((item) => item.id !== id));
-      showToast("Đã xóa ảnh khỏi sổ tay");
-      try {
-        await api.deleteHandwriting(id);
-        setApiConnected(true);
-      } catch {
-        // Offline fallback
-      }
-    },
-    [showToast],
-  );
-
   const recordGameWin = useCallback(
     async (
       xpAmount: number,
@@ -911,33 +824,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       });
       triggerXpEffects(xpAmount, label, ev);
 
+      // Keep game score/history strictly local in memory — do NOT POST to `scores` collection
+      if (meta) {
+        const entry: ScoreHistoryItem = {
+          id: `local_sc_${Date.now()}`,
+          level: meta.level ?? 0,
+          mode: meta.mode ?? "quiz",
+          score: meta.score ?? xpAmount,
+          combo: meta.combo ?? 1,
+          xpEarned: xpAmount,
+          detail: label,
+          playedAt: new Date().toISOString(),
+        };
+        setScoreHistory((prev) => [entry, ...prev].slice(0, 30));
+        if (meta.level && meta.level >= 1 && meta.level <= 6) {
+          setScoreSummaries((prev) =>
+            prev.map((s) =>
+              s.level === meta.level
+                ? {
+                    ...s,
+                    xpEarned: s.xpEarned + xpAmount,
+                    totalScore: s.totalScore + (meta.score ?? xpAmount),
+                    highScore: Math.max(s.highScore, meta.score ?? xpAmount),
+                    bestCombo: Math.max(s.bestCombo, meta.combo ?? 1),
+                    gamesPlayed: s.gamesPlayed + 1,
+                  }
+                : s,
+            ),
+          );
+        }
+      }
+
       try {
-        const [updated] = await Promise.all([
-          api.recordReview(xpAmount, true),
-          meta
-            ? api.recordScore({
-                level: meta.level ?? 0,
-                mode: meta.mode ?? "quiz",
-                score: meta.score ?? xpAmount,
-                combo: meta.combo ?? 1,
-                xpEarned: xpAmount,
-                detail: label,
-              })
-            : Promise.resolve(null),
-        ]);
+        const updated = await api.recordReview(xpAmount, true);
         setProfile((prev) => ({ ...prev, ...updated }));
-        await refreshScores();
         setApiConnected(true);
       } catch {
         // Offline fallback
       }
     },
-    [triggerXpEffects, refreshScores],
+    [triggerXpEffects],
   );
 
   const submitCourseExercise = useCallback(
     async (id: string, answer: string, ev?: ClickCoords) => {
       const localEx = exercisesRef.current.find((e) => e.id === id);
+
+      // Prevent repeat point farming if already completed or currently submitting
+      if (localEx?.completed) {
+        return {
+          correct: answer.trim() === localEx.correctAnswer.trim(),
+          correctAnswer: localEx.correctAnswer,
+          explanation: localEx.explanation || "",
+        };
+      }
+      if (submittingExIdsRef.current.has(id)) {
+        return {
+          correct: false,
+          correctAnswer: localEx?.correctAnswer || "",
+          explanation: localEx?.explanation || "",
+        };
+      }
+
+      submittingExIdsRef.current.add(id);
       try {
         const res = await api.submitExercise(id, answer);
         if (res.correct) {
@@ -945,8 +894,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
             prev.map((e) => (e.id === id ? { ...e, completed: true } : e)),
           );
           if (res.profile) setProfile((prev) => ({ ...prev, ...res.profile }));
-          triggerXpEffects(res.xpEarned, "Chính xác! Hoàn thành bài tập", ev);
-          await refreshScores();
+          if (res.xpEarned > 0 && !res.alreadyCompleted) {
+            triggerXpEffects(res.xpEarned, "Chính xác! Hoàn thành bài tập", ev);
+          } else {
+            showToast("Câu này đã hoàn thành trước đó!");
+          }
         } else {
           showToast(
             `Chưa chính xác! Đáp án đúng: ${res.correctAnswer}`,
@@ -963,18 +915,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         const correct =
           !!localEx && answer.trim() === localEx.correctAnswer.trim();
         if (correct && localEx) {
+          const alreadyDone = !!localEx.completed;
           setExercises((prev) =>
             prev.map((e) => (e.id === id ? { ...e, completed: true } : e)),
           );
-          setProfile((prev) => ({
-            ...prev,
-            xp: prev.xp + (localEx.xpReward || 20),
-          }));
-          triggerXpEffects(
-            localEx.xpReward || 20,
-            "Chính xác! Hoàn thành bài tập",
-            ev,
-          );
+          if (!alreadyDone) {
+            setProfile((prev) => ({
+              ...prev,
+              xp: prev.xp + (localEx.xpReward || 20),
+            }));
+            triggerXpEffects(
+              localEx.xpReward || 20,
+              "Chính xác! Hoàn thành bài tập",
+              ev,
+            );
+          }
         } else {
           showToast(
             `Chưa chính xác! Đáp án đúng: ${localEx?.correctAnswer || ""}`,
@@ -986,6 +941,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           correctAnswer: localEx?.correctAnswer || "",
           explanation: localEx?.explanation || "",
         };
+      } finally {
+        submittingExIdsRef.current.delete(id);
       }
     },
     [refreshScores, showToast, triggerXpEffects],
@@ -1068,9 +1025,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       exercises,
       scoreSummaries,
       scoreHistory,
-      handwritingGallery,
-      writeQuickPool,
-      setWriteQuickPool,
       syncProfile,
       apiConnected,
       showToast,
@@ -1088,9 +1042,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       deleteCustomWord,
       batchDeleteWords,
       bulkImportWords,
-      recordHanziQuizComplete,
-      saveHandwritingSnapshot,
-      deleteHandwritingItem,
       recordGameWin,
       submitCourseExercise,
       exportDataJSON,
@@ -1103,8 +1054,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       exercises,
       scoreSummaries,
       scoreHistory,
-      handwritingGallery,
-      writeQuickPool,
       syncProfile,
       apiConnected,
       showToast,
@@ -1122,9 +1071,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       deleteCustomWord,
       batchDeleteWords,
       bulkImportWords,
-      recordHanziQuizComplete,
-      saveHandwritingSnapshot,
-      deleteHandwritingItem,
       recordGameWin,
       submitCourseExercise,
       exportDataJSON,
