@@ -1,5 +1,7 @@
 import { CourseMeta, UserProfile, VocabStatus } from '../types';
 
+export const HSK_LEVELS = [1, 2, 3, 4, 5, 6] as const;
+
 export const VOCAB_STATUS_LABELS: Record<VocabStatus, string> = {
   mastered: 'Đã thuộc',
   learning: 'Đang học',

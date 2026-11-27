@@ -8,8 +8,10 @@ import {
   Trash2,
   Volume2,
 } from 'lucide-react';
-import React, { useState } from 'react';
-import { VocabStatus, VocabWord } from '../../types';
+import React, { useMemo, useState } from 'react';
+import { VOCAB_STATUS_LABELS } from '@/data/defaults';
+import { useVocabUiStore } from '@/features/vocab/stores/vocab-ui.store';
+import type { VocabStatus, VocabWord } from '@/types';
 
 const STATUS_SELECT_BG: Record<VocabStatus, string> = {
   mastered: 'bg-[#CBEAD8]',
@@ -18,18 +20,15 @@ const STATUS_SELECT_BG: Record<VocabStatus, string> = {
   new: 'bg-[#F8F6F1]',
 };
 
+const STATUS_ORDER: ReadonlyArray<VocabStatus> = ['mastered', 'learning', 'review', 'new'];
+
 interface VocabRowProps {
   word: VocabWord;
   lessonTitle?: string;
-  selected: boolean;
-  expanded: boolean;
-  onToggleSelect: (id: string) => void;
-  onToggleExpand: (id: string) => void;
   onSpeak: (text: string, rate?: number) => void;
   onPracticeChar: (char: string) => void;
   onOpenLessonFlashcard: (lessonId: string) => void;
   onChangeStatus: (id: string, status: VocabStatus) => void;
-  onEdit: (word: VocabWord) => void;
   onDelete: (id: string) => void;
 }
 
@@ -37,26 +36,26 @@ export const VocabRow: React.FC<VocabRowProps> = React.memo(
   ({
     word,
     lessonTitle,
-    selected,
-    expanded,
-    onToggleSelect,
-    onToggleExpand,
     onSpeak,
     onPracticeChar,
     onOpenLessonFlashcard,
     onChangeStatus,
-    onEdit,
     onDelete,
   }) => {
+    const selected = useVocabUiStore((s) => s.selectedIds.has(word.id));
+    const expanded = useVocabUiStore((s) => s.expandedId === word.id);
     const [confirmDelete, setConfirmDelete] = useState(false);
 
-    const uniqueHanziChars = Array.from(
-      new Set(Array.from(word.hanzi).filter((ch) => /[\u4e00-\u9fff]/.test(ch))),
+    const uniqueHanziChars = useMemo(
+      () => Array.from(new Set(Array.from(word.hanzi).filter((ch) => /[\u4e00-\u9fff]/.test(ch)))),
+      [word.hanzi],
     );
     const firstChar = uniqueHanziChars[0] || Array.from(word.hanzi)[0] || '';
     const hasRichExample =
       (word.exampleZh && word.exampleZh.trim() !== word.hanzi.trim()) ||
       (word.exampleVi && word.exampleVi.trim() !== word.meaning.trim());
+
+    const toggleExpand = () => useVocabUiStore.getState().toggleExpand(word.id);
 
     return (
       <div
@@ -70,13 +69,13 @@ export const VocabRow: React.FC<VocabRowProps> = React.memo(
             <input
               type="checkbox"
               checked={selected}
-              onChange={() => onToggleSelect(word.id)}
+              onChange={() => useVocabUiStore.getState().toggleSelect(word.id)}
               aria-label={`Chọn từ ${word.hanzi}`}
               className="mt-1.5 w-4 h-4 accent-[#111111] cursor-pointer shrink-0"
             />
             <button
               type="button"
-              onClick={() => onToggleExpand(word.id)}
+              onClick={toggleExpand}
               className="text-left min-w-0 flex-1 group"
               title="Bấm để xem ví dụ & chi tiết"
             >
@@ -97,18 +96,13 @@ export const VocabRow: React.FC<VocabRowProps> = React.memo(
                     {word.hanviet}
                   </span>
                 )}
-                {word.pos && (
-                  <span className="font-mono text-[10px] opacity-60">{word.pos}</span>
-                )}
+                {word.pos && <span className="font-mono text-[10px] opacity-60">{word.pos}</span>}
               </div>
             </button>
           </div>
 
           {/* Col 5-8: Vietnamese meaning + English + lesson tag */}
-          <div
-            className="md:col-span-4 min-w-0 pl-6 md:pl-0 cursor-pointer"
-            onClick={() => onToggleExpand(word.id)}
-          >
+          <div className="md:col-span-4 min-w-0 pl-6 md:pl-0 cursor-pointer" onClick={toggleExpand}>
             <div className="text-sm font-semibold leading-snug">{word.meaning}</div>
             {word.english && (
               <div className="font-mono text-[11px] opacity-65 mt-0.5 truncate">
@@ -151,14 +145,15 @@ export const VocabRow: React.FC<VocabRowProps> = React.memo(
                 STATUS_SELECT_BG[word.status] || 'bg-[#F8F6F1]'
               }`}
             >
-              <option value="mastered">Đã thuộc</option>
-              <option value="learning">Đang học</option>
-              <option value="review">Cần chú ý</option>
-              <option value="new">Từ mới</option>
+              {STATUS_ORDER.map((st) => (
+                <option key={st} value={st}>
+                  {VOCAB_STATUS_LABELS[st]}
+                </option>
+              ))}
             </select>
             <button
               type="button"
-              onClick={() => onEdit(word)}
+              onClick={() => useVocabUiStore.getState().openEditModal(word)}
               className="t-btn w-8 h-8 bg-white text-[#111111] flex items-center justify-center shrink-0 hover:bg-[#DCD2F5]"
               title="Chỉnh sửa từ"
             >
@@ -189,7 +184,7 @@ export const VocabRow: React.FC<VocabRowProps> = React.memo(
             )}
             <button
               type="button"
-              onClick={() => onToggleExpand(word.id)}
+              onClick={toggleExpand}
               className="w-7 h-8 rounded flex items-center justify-center opacity-65 hover:opacity-100 hover:bg-black/5 transition shrink-0"
               title={expanded ? 'Thu gọn' : 'Xem ví dụ & chi tiết'}
             >
@@ -230,7 +225,8 @@ export const VocabRow: React.FC<VocabRowProps> = React.memo(
                 </div>
               ) : (
                 <p className="font-mono text-[11px] opacity-60">
-                  Chưa có câu ví dụ riêng — bạn có thể bấm nút <strong>Sửa</strong> để bổ sung ví dụ.
+                  Chưa có câu ví dụ riêng — bạn có thể bấm nút <strong>Sửa</strong> để bổ sung ví
+                  dụ.
                 </p>
               )}
 
@@ -245,7 +241,9 @@ export const VocabRow: React.FC<VocabRowProps> = React.memo(
 
               <div className="pt-2 border-t border-dashed border-[#141414]/20 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="font-mono text-[10px] uppercase opacity-60">Đồ nét từng chữ:</span>
+                  <span className="font-mono text-[10px] uppercase opacity-60">
+                    Đồ nét từng chữ:
+                  </span>
                   {uniqueHanziChars.map((ch) => (
                     <button
                       key={ch}

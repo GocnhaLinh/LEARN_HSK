@@ -7,9 +7,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { DEFAULT_PROFILE, VOCAB_STATUS_LABELS } from "@/data/defaults";
+import { DEFAULT_PROFILE } from "@/data/defaults";
 import { exercisesKeys } from "@/features/exercises/hooks/useExercisesQuery";
 import { notesKeys } from "@/features/notes/hooks/useNotes";
+import { useVocab, vocabKeys } from "@/features/vocab/hooks/useVocab";
 import { handwritingKeys } from "@/features/writing/hooks/useHandwriting";
 import { getTodayISO } from "@/lib/date-utils";
 import { spawnConfetti, spawnFloatingXP } from "@/lib/fx-utils";
@@ -38,21 +39,6 @@ interface ClickCoords {
   clientY?: number;
 }
 
-export interface VocabFormInput {
-  hanzi: string;
-  pinyin: string;
-  hanviet?: string;
-  english?: string;
-  meaning: string;
-  pos?: string;
-  level: number;
-  lessonId?: string;
-  status?: VocabStatus;
-  note?: string;
-  exampleZh?: string;
-  exampleVi?: string;
-}
-
 interface AppContextValue {
   profile: UserProfile;
   lessons: Lesson[];
@@ -61,6 +47,7 @@ interface AppContextValue {
   syncProfile: (
     next: Partial<UserProfile> | ((prev: UserProfile) => UserProfile),
   ) => void;
+  syncLessons: (next: Lesson[]) => void;
   apiConnected: boolean;
   showToast: (msg: string, variant?: ToastVariant) => void;
   dismissToast: (id: string) => void;
@@ -74,12 +61,6 @@ interface AppContextValue {
     status: VocabStatus,
     ev?: ClickCoords,
   ) => Promise<void>;
-  changeWordStatus: (id: string, status: VocabStatus) => Promise<void>;
-  batchChangeWordStatus: (ids: string[], status: VocabStatus) => Promise<void>;
-  addCustomWord: (input: VocabFormInput) => Promise<void>;
-  updateWord: (id: string, patch: Partial<VocabFormInput>) => Promise<void>;
-  deleteCustomWord: (id: string) => Promise<void>;
-  batchDeleteWords: (ids: string[]) => Promise<void>;
   bulkImportWords: (payload: {
     level: number;
     baseTitle: string;
@@ -88,8 +69,6 @@ interface AppContextValue {
     autoGenerateExercises?: boolean;
     extractedExercises?: ExtractedExerciseRow[];
   }) => Promise<boolean>;
-  exportDataJSON: () => Promise<void>;
-  importDataJSON: (rawJson: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -141,9 +120,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [lessons, setLessons] = useState<Lesson[]>(() =>
     Array.isArray(cached?.lessons) ? cached.lessons : [],
   );
-  const [vocab, setVocab] = useState<VocabWord[]>(() =>
-    Array.isArray(cached?.vocab) ? cached.vocab : [],
-  );
+  const { data: vocab = [] } = useVocab(false);
   const [exercises, setExercises] = useState<ExerciseItem[]>(() =>
     Array.isArray(cached?.exercises) ? cached.exercises : [],
   );
@@ -160,11 +137,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [],
   );
 
+  const syncLessons = useCallback((next: Lesson[]) => setLessons(next), []);
+
   // Refs for stable callbacks (avoids tearing down callbacks / re-rendering consumers on data edits)
   const profileRef = useRef(profile);
   profileRef.current = profile;
-  const lessonsRef = useRef(lessons);
-  lessonsRef.current = lessons;
   const vocabRef = useRef(vocab);
   vocabRef.current = vocab;
 
@@ -242,7 +219,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           : DEFAULT_PROFILE.missionsDone,
       });
       if (Array.isArray(data.lessons)) setLessons(data.lessons);
-      if (Array.isArray(data.vocab)) setVocab(data.vocab);
+      if (Array.isArray(data.vocab)) {
+        queryClient.setQueryData<VocabWord[]>(vocabKeys.list, data.vocab);
+      }
       if (Array.isArray(data.exercises)) setExercises(data.exercises);
       if (Array.isArray(data.notes)) {
         queryClient.setQueryData<MindNote[]>(notesKeys.list, data.notes);
@@ -443,7 +422,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       };
       const xpGain = xpMap[newStatus] || 0;
 
-      setVocab((prev) =>
+      queryClient.setQueryData<VocabWord[]>(vocabKeys.list, (prev = []) =>
         prev.map((w) => (w.id === id ? { ...w, status: newStatus } : w)),
       );
       setProfile((prev) => {
@@ -472,180 +451,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     },
     [triggerXpEffects],
-  );
-
-  const changeWordStatus = useCallback(
-    async (id: string, newStatus: VocabStatus) => {
-      const word = vocabRef.current.find((w) => w.id === id);
-      if (!word) return;
-      setVocab((prev) =>
-        prev.map((w) => (w.id === id ? { ...w, status: newStatus } : w)),
-      );
-      showToast(`Đã cập nhật trạng thái "${word.hanzi}"`);
-      try {
-        await api.updateVocabStatus(id, newStatus, false);
-        setApiConnected(true);
-      } catch {
-        // Offline fallback
-      }
-    },
-    [showToast],
-  );
-
-  const batchChangeWordStatus = useCallback(
-    async (ids: string[], newStatus: VocabStatus) => {
-      const idSet = new Set(ids);
-      if (!idSet.size) return;
-      setVocab((prev) =>
-        prev.map((w) => (idSet.has(w.id) ? { ...w, status: newStatus } : w)),
-      );
-      showToast(
-        `Đã chuyển ${idSet.size} từ sang "${VOCAB_STATUS_LABELS[newStatus]}"`,
-        "yellow",
-      );
-      try {
-        await api.batchUpdateVocabStatus(Array.from(idSet), newStatus);
-        setApiConnected(true);
-      } catch {
-        // Fallback per-item if running older backend without batch route
-        await Promise.allSettled(
-          Array.from(idSet).map((id) => api.updateVocabStatus(id, newStatus, false)),
-        );
-      }
-    },
-    [showToast],
-  );
-
-  const addCustomWord = useCallback(
-    async (input: VocabFormInput) => {
-      const defaultLesson = lessonsRef.current.find(
-        (l) => l.level === input.level,
-      );
-      const optimisticWord: VocabWord = {
-        id: "cw_" + Date.now(),
-        lessonId:
-          input.lessonId ||
-          (defaultLesson ? defaultLesson.id : `hsk${input.level}-l1`),
-        hanzi: input.hanzi.trim(),
-        pinyin: input.pinyin.trim(),
-        hanviet: (input.hanviet || "").trim().toUpperCase() || "TỰ THÊM",
-        english: (input.english || "").trim(),
-        meaning: input.meaning.trim(),
-        pos: (input.pos || "").trim() || "Từ vựng",
-        level: input.level,
-        status: input.status || "new",
-        custom: true,
-        note: (input.note || "").trim() || "Từ vựng cá nhân do bạn tự thêm.",
-        exampleZh: (input.exampleZh || "").trim() || input.hanzi.trim(),
-        exampleVi: (input.exampleVi || "").trim() || input.meaning.trim(),
-      };
-
-      setVocab((prev) => [optimisticWord, ...prev]);
-      setProfile((prev) => ({ ...prev, xp: prev.xp + 10 }));
-      triggerXpEffects(10, `Đã thêm từ "${optimisticWord.hanzi}"`);
-
-      try {
-        const res = await api.createVocab(input);
-        if (res?.word) {
-          setVocab((prev) =>
-            prev.map((w) => (w.id === optimisticWord.id ? res.word : w)),
-          );
-        }
-        if (res?.profile) setProfile((prev) => ({ ...prev, ...res.profile }));
-        setApiConnected(true);
-      } catch {
-        // Offline fallback
-      }
-    },
-    [triggerXpEffects],
-  );
-
-  const updateWord = useCallback(
-    async (id: string, patch: Partial<VocabFormInput>) => {
-      const normalized: Partial<VocabWord> = {
-        ...patch,
-        ...(typeof patch.hanzi === "string"
-          ? { hanzi: patch.hanzi.trim() }
-          : {}),
-        ...(typeof patch.pinyin === "string"
-          ? { pinyin: patch.pinyin.trim() }
-          : {}),
-        ...(typeof patch.hanviet === "string"
-          ? { hanviet: patch.hanviet.trim().toUpperCase() }
-          : {}),
-        ...(typeof patch.english === "string"
-          ? { english: patch.english.trim() }
-          : {}),
-        ...(typeof patch.meaning === "string"
-          ? { meaning: patch.meaning.trim() }
-          : {}),
-        ...(typeof patch.pos === "string" ? { pos: patch.pos.trim() } : {}),
-        ...(typeof patch.note === "string" ? { note: patch.note.trim() } : {}),
-        ...(typeof patch.exampleZh === "string"
-          ? { exampleZh: patch.exampleZh.trim() }
-          : {}),
-        ...(typeof patch.exampleVi === "string"
-          ? { exampleVi: patch.exampleVi.trim() }
-          : {}),
-      };
-
-      setVocab((prev) =>
-        prev.map((w) => (w.id === id ? { ...w, ...normalized } : w)),
-      );
-      showToast(
-        `Đã lưu thay đổi cho "${normalized.hanzi || "từ vựng"}"`,
-        "yellow",
-      );
-
-      try {
-        const updated = await api.updateVocab(id, normalized);
-        if (updated?.id) {
-          setVocab((prev) =>
-            prev.map((w) => (w.id === id ? { ...w, ...updated } : w)),
-          );
-        }
-        setApiConnected(true);
-      } catch {
-        // Offline fallback already applied
-      }
-    },
-    [showToast],
-  );
-
-  const deleteCustomWord = useCallback(
-    async (id: string) => {
-      const target = vocabRef.current.find((w) => w.id === id);
-      setVocab((prev) => prev.filter((w) => w.id !== id));
-      showToast(
-        target ? `Đã xóa từ "${target.hanzi}"` : "Đã xóa từ vựng",
-        "pink",
-      );
-      try {
-        await api.deleteVocab(id);
-        setApiConnected(true);
-      } catch {
-        // Offline fallback
-      }
-    },
-    [showToast],
-  );
-
-  const batchDeleteWords = useCallback(
-    async (ids: string[]) => {
-      const idSet = new Set(ids);
-      if (!idSet.size) return;
-      setVocab((prev) => prev.filter((w) => !idSet.has(w.id)));
-      showToast(`Đã xóa ${idSet.size} từ khỏi kho từ`, "pink");
-      try {
-        await api.batchDeleteVocab(Array.from(idSet));
-        setApiConnected(true);
-      } catch {
-        await Promise.allSettled(
-          Array.from(idSet).map((id) => api.deleteVocab(id)),
-        );
-      }
-    },
-    [showToast],
   );
 
   const bulkImportWords = useCallback(
@@ -690,7 +495,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           setLessons((prev) => [...res.lessons, ...prev]);
         }
         if (Array.isArray(res.words) && res.words.length) {
-          setVocab((prev) => [...res.words, ...prev]);
+          queryClient.setQueryData<VocabWord[]>(vocabKeys.list, (prev = []) => [
+            ...res.words,
+            ...prev,
+          ]);
         }
         if (Array.isArray(res.exercises) && res.exercises.length) {
           setExercises((prev) => [...res.exercises, ...prev]);
@@ -729,75 +537,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [showToast, triggerXpEffects],
   );
 
-  const exportDataJSON = useCallback(async () => {
-    const p = profileRef.current;
-    let payload: any = {
-      exportedAt: new Date().toISOString(),
-      xp: p.xp,
-      streak: p.streak,
-      dailyTarget: p.dailyTarget,
-      weeklyLog: p.weeklyLog,
-      lessons: lessonsRef.current,
-      vocab: vocabRef.current,
-      notes: queryClient.getQueryData<MindNote[]>(notesKeys.list) || [],
-    };
-    try {
-      payload = await api.exportBackup();
-      setApiConnected(true);
-    } catch {
-      // Export local snapshot if API offline
-    }
-    const dataStr = JSON.stringify(payload, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `hsk-quest-3.0-backup-${getTodayISO()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast("Đã xuất file Backup JSON thành công!", "yellow");
-  }, [showToast]);
-
-  const importDataJSON = useCallback(
-    async (rawJson: string) => {
-      try {
-        const parsed = JSON.parse(rawJson);
-        if (Array.isArray(parsed.lessons) && parsed.lessons.length > 0)
-          setLessons(parsed.lessons);
-        if (Array.isArray(parsed.vocab) && parsed.vocab.length > 0)
-          setVocab(parsed.vocab);
-        if (Array.isArray(parsed.notes)) {
-          queryClient.setQueryData<MindNote[]>(notesKeys.list, parsed.notes);
-        }
-        setProfile((prev) => ({
-          ...prev,
-          xp: typeof parsed.xp === "number" ? parsed.xp : prev.xp,
-          streak:
-            typeof parsed.streak === "number" ? parsed.streak : prev.streak,
-          dailyTarget:
-            typeof parsed.dailyTarget === "number"
-              ? parsed.dailyTarget
-              : prev.dailyTarget,
-          weeklyLog:
-            Array.isArray(parsed.weeklyLog) && parsed.weeklyLog.length === 7
-              ? parsed.weeklyLog
-              : prev.weeklyLog,
-        }));
-
-        try {
-          await api.importBackup(parsed);
-          setApiConnected(true);
-        } catch {
-          // Offline restore still succeeds
-        }
-        showToast("Khôi phục dữ liệu từ file JSON thành công!", "yellow");
-      } catch {
-        showToast("File JSON không hợp lệ.", "pink");
-      }
-    },
-    [showToast],
-  );
-
   const appCtxValue = useMemo<AppContextValue>(
     () => ({
       profile,
@@ -805,6 +544,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       vocab,
       exercises,
       syncProfile,
+      syncLessons,
       apiConnected,
       showToast,
       dismissToast,
@@ -814,15 +554,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       setFocusLevel,
       toggleMissionDone,
       rateFlashcardWord,
-      changeWordStatus,
-      batchChangeWordStatus,
-      addCustomWord,
-      updateWord,
-      deleteCustomWord,
-      batchDeleteWords,
       bulkImportWords,
-      exportDataJSON,
-      importDataJSON,
     }),
     [
       profile,
@@ -830,6 +562,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       vocab,
       exercises,
       syncProfile,
+      syncLessons,
       apiConnected,
       showToast,
       dismissToast,
@@ -839,15 +572,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       setFocusLevel,
       toggleMissionDone,
       rateFlashcardWord,
-      changeWordStatus,
-      batchChangeWordStatus,
-      addCustomWord,
-      updateWord,
-      deleteCustomWord,
-      batchDeleteWords,
       bulkImportWords,
-      exportDataJSON,
-      importDataJSON,
     ],
   );
 
