@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
-import { CreateExerciseDto, SubmitExerciseDto } from './exercises.dto';
+import { CreateExerciseDto } from './exercises.dto';
 import { ExercisesService } from './exercises.service';
 
 @Controller('exercises')
@@ -18,11 +18,6 @@ export class ExercisesController {
   @Post()
   create(@Body() dto: CreateExerciseDto) {
     return this.exercisesService.create(dto);
-  }
-
-  @Post(':id/submit')
-  submit(@Param('id') id: string, @Body() dto: SubmitExerciseDto) {
-    return this.exercisesService.submit(id, dto);
   }
 
   @Delete(':id')

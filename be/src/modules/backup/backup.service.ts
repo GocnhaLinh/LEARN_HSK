@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { HskCollectionsService } from '../../database/hsk-collections.service';
 import { Handwriting, HandwritingDocument } from '../../schemas/handwriting.schema';
 import { Note, NoteDocument } from '../../schemas/note.schema';
+import { sanitizeExerciseOptions } from '../../schemas/schema-options';
 import { ProfileService } from '../profile/profile.service';
 import { ImportBackupDto } from './backup.dto';
 
@@ -17,27 +18,21 @@ export class BackupService {
   ) {}
 
   async exportData() {
-    const allModels = this.hskCollections.getAllModels();
+    const allLevels = this.hskCollections.getAllLevels();
     const [profile, perLevelLessons, perLevelVocab, perLevelExercises, notes, handwriting] =
       await Promise.all([
         this.profileService.getOrCreate(),
         Promise.all(
-          allModels.map(({ model }) =>
-            model.find({ category: 'lesson' }).sort({ order: 1 }).lean().exec(),
-          ),
+          allLevels.map((lv) => lv.lessons.find().select('-_id -__v').sort({ order: 1 }).lean().exec()),
         ),
         Promise.all(
-          allModels.map(({ model }) =>
-            model.find({ category: 'vocab' }).sort({ order: 1 }).lean().exec(),
-          ),
+          allLevels.map((lv) => lv.vocab.find().select('-_id -__v').sort({ order: 1 }).lean().exec()),
         ),
         Promise.all(
-          allModels.map(({ model }) =>
-            model.find({ category: 'exercise' }).sort({ order: 1 }).lean().exec(),
-          ),
+          allLevels.map((lv) => lv.exercises.find().select('-_id -__v').sort({ order: 1 }).lean().exec()),
         ),
-        this.noteModel.find().sort({ createdAt: -1 }).lean().exec(),
-        this.handwritingModel.find().sort({ createdAt: -1 }).lean().exec(),
+        this.noteModel.find().select('-_id -__v').sort({ createdAt: -1 }).lean().exec(),
+        this.handwritingModel.find().select('-_id -__v').sort({ createdAt: -1 }).lean().exec(),
       ]);
 
     return {
@@ -70,21 +65,20 @@ export class BackupService {
 
     if (Array.isArray(dto.lessons) && dto.lessons.length > 0) {
       await Promise.all(
-        this.hskCollections.getAllModels().map(async ({ level, model }) => {
-          await model.deleteMany({ category: 'lesson' }).exec();
+        this.hskCollections.getAllLevels().map(async (lv) => {
+          await lv.lessons.deleteMany({}).exec();
           const lvLessons = dto.lessons!
-            .filter((l) => (Number(l.level) || 1) === level)
+            .filter((l) => (Number(l.level) || 1) === lv.level)
             .map((l, idx) => ({
               id: l.id,
-              category: 'lesson' as const,
-              level,
+              level: lv.level,
               title: l.title || 'Bài học',
               desc: l.desc || '',
               fromFile: !!l.fromFile,
               order: typeof l.order === 'number' ? l.order : idx + 1,
             }));
           if (lvLessons.length) {
-            await model.insertMany(lvLessons, { ordered: false }).catch(() => {});
+            await lv.lessons.insertMany(lvLessons, { ordered: false }).catch(() => {});
           }
         }),
       );
@@ -92,21 +86,20 @@ export class BackupService {
 
     if (Array.isArray(dto.vocab) && dto.vocab.length > 0) {
       await Promise.all(
-        this.hskCollections.getAllModels().map(async ({ level, model }) => {
-          await model.deleteMany({ category: 'vocab' }).exec();
+        this.hskCollections.getAllLevels().map(async (lv) => {
+          await lv.vocab.deleteMany({}).exec();
           const lvVocab = dto.vocab!
-            .filter((w) => (Number(w.level) || 1) === level)
+            .filter((w) => (Number(w.level) || 1) === lv.level)
             .map((w, idx) => ({
               id: w.id,
-              category: 'vocab' as const,
-              lessonId: w.lessonId || `hsk${level}-l1`,
+              lessonId: w.lessonId || `hsk${lv.level}-l1`,
               hanzi: w.hanzi,
               pinyin: w.pinyin || '—',
               hanviet: w.hanviet || '',
               english: w.english || '',
               meaning: w.meaning || '',
               pos: w.pos || 'Từ vựng',
-              level,
+              level: lv.level,
               status: ['mastered', 'learning', 'review', 'new'].includes(w.status)
                 ? w.status
                 : 'new',
@@ -117,7 +110,42 @@ export class BackupService {
               order: typeof w.order === 'number' ? w.order : idx + 1,
             }));
           if (lvVocab.length) {
-            await model.insertMany(lvVocab, { ordered: false }).catch(() => {});
+            await lv.vocab.insertMany(lvVocab, { ordered: false }).catch(() => {});
+          }
+        }),
+      );
+    }
+
+    if (Array.isArray(dto.exercises) && dto.exercises.length > 0) {
+      const rawExercises = dto.exercises;
+      await Promise.all(
+        this.hskCollections.getAllLevels().map(async (lv) => {
+          await lv.exercises.deleteMany({}).exec();
+          const lvExercises = rawExercises
+            .filter((ex) => (Number(ex.level) || 1) === lv.level)
+            .map((ex, idx) => {
+              const options = sanitizeExerciseOptions(ex.options);
+              return {
+                id: ex.id || `ex_h${lv.level}_imp_${idx}`,
+                level: lv.level,
+                lessonId: ex.lessonId || `hsk${lv.level}-l1`,
+                exerciseType: ['translate', 'fill_blank', 'writing', 'listen', 'quiz'].includes(
+                  ex.exerciseType,
+                )
+                  ? ex.exerciseType
+                  : 'translate',
+                title: ex.title || 'Bài tập',
+                question: ex.question || '',
+                ...(options ? { options } : {}),
+                correctAnswer: ex.correctAnswer || '',
+                explanation: ex.explanation || '',
+                xpReward: typeof ex.xpReward === 'number' ? ex.xpReward : 20,
+                completed: !!ex.completed,
+                order: typeof ex.order === 'number' ? ex.order : idx + 1,
+              };
+            });
+          if (lvExercises.length) {
+            await lv.exercises.insertMany(lvExercises, { ordered: false }).catch(() => {});
           }
         }),
       );

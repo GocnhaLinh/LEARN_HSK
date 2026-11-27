@@ -19,7 +19,7 @@ export class VocabService {
   ) {}
 
   async findAll(query: { level?: string; status?: string; lessonId?: string; search?: string }) {
-    const filter: Record<string, any> = { category: 'vocab' };
+    const filter: Record<string, any> = {};
     if (query.status && query.status !== 'all') {
       filter.status = query.status;
     }
@@ -32,8 +32,8 @@ export class VocabService {
       const lv = Number(query.level);
       if (Number.isFinite(lv) && lv >= 1 && lv <= 6) {
         list = await this.hskCollections
-          .getModel(lv)
-          .find(filter)
+          .getLevel(lv)
+          .vocab.find(filter)
           .select('-_id -__v')
           .sort({ order: 1, createdAt: -1 })
           .lean()
@@ -43,8 +43,13 @@ export class VocabService {
       }
     } else {
       const perLevel = await Promise.all(
-        this.hskCollections.getAllModels().map(({ model }) =>
-          model.find(filter).select('-_id -__v').sort({ order: 1, createdAt: -1 }).lean().exec(),
+        this.hskCollections.getAllLevels().map((lv) =>
+          lv.vocab
+            .find(filter)
+            .select('-_id -__v')
+            .sort({ order: 1, createdAt: -1 })
+            .lean()
+            .exec(),
         ),
       );
       list = perLevel.flat();
@@ -66,7 +71,7 @@ export class VocabService {
   }
 
   async findOne(id: string) {
-    const found = await this.hskCollections.findByIdAcrossLevels(id, 'vocab');
+    const found = await this.hskCollections.findVocabById(id);
     if (!found) {
       throw new NotFoundException(`Vocab word "${id}" not found`);
     }
@@ -74,20 +79,15 @@ export class VocabService {
   }
 
   async create(dto: CreateVocabDto) {
-    const model = this.hskCollections.getModel(dto.level);
+    const lv = this.hskCollections.getLevel(dto.level);
     let lessonId = dto.lessonId;
     if (!lessonId) {
-      const defaultLesson = await model
-        .findOne({ category: 'lesson' })
-        .sort({ order: 1 })
-        .lean()
-        .exec();
+      const defaultLesson = await lv.lessons.findOne().sort({ order: 1 }).lean().exec();
       lessonId = defaultLesson ? defaultLesson.id : `hsk${dto.level}-l1`;
     }
 
-    const doc = await model.create({
+    const doc = await lv.vocab.create({
       id: `cw_${Date.now()}`,
-      category: 'vocab',
       lessonId,
       hanzi: dto.hanzi.trim(),
       pinyin: dto.pinyin.trim(),
@@ -104,27 +104,12 @@ export class VocabService {
       order: -Date.now(),
     });
 
-    await model.findOneAndUpdate(
-      { category: 'course_summary', level: dto.level },
-      {
-        $setOnInsert: {
-          id: `hsk${dto.level}_summary`,
-          category: 'course_summary',
-          level: dto.level,
-          code: `HSK ${dto.level}`,
-          order: 0,
-        },
-        $inc: { xpEarned: 10 },
-      },
-      { upsert: true },
-    );
-
     const profile = await this.profileService.addXp(10);
     return { word: doc.toObject(), profile };
   }
 
   async update(id: string, dto: UpdateVocabDto) {
-    const found = await this.hskCollections.findByIdAcrossLevels(id, 'vocab');
+    const found = await this.hskCollections.findVocabById(id);
     if (!found) {
       throw new NotFoundException(`Vocab word "${id}" not found`);
     }
@@ -142,23 +127,22 @@ export class VocabService {
     if (typeof cleanPatch.exampleZh === 'string') cleanPatch.exampleZh = cleanPatch.exampleZh.trim();
     if (typeof cleanPatch.exampleVi === 'string') cleanPatch.exampleVi = cleanPatch.exampleVi.trim();
 
-    // Move document across HSK1..HSK6 collections cleanly if level changed
+    // Move document cleanly across HSK1..HSK6 databases if level changed
     if (dto.level && dto.level !== found.level) {
-      const targetModel = this.hskCollections.getModel(dto.level);
+      const targetLevel = this.hskCollections.getLevel(dto.level);
       const { _id, __v, ...rest } = found.doc;
       const merged = {
         ...rest,
         ...cleanPatch,
-        category: 'vocab',
         level: dto.level,
       };
-      await targetModel.findOneAndUpdate({ id }, { $set: merged }, { upsert: true }).exec();
-      await found.model.deleteOne({ id, category: 'vocab' }).exec();
+      await targetLevel.vocab.findOneAndUpdate({ id }, { $set: merged }, { upsert: true }).exec();
+      await found.models.vocab.deleteOne({ id }).exec();
       return merged;
     }
 
-    const updated = await found.model
-      .findOneAndUpdate({ id, category: 'vocab' }, { $set: cleanPatch }, { new: true })
+    const updated = await found.models.vocab
+      .findOneAndUpdate({ id }, { $set: cleanPatch }, { new: true })
       .select('-_id -__v')
       .lean()
       .exec();
@@ -171,12 +155,8 @@ export class VocabService {
 
     const results = await Promise.all(
       this.hskCollections
-        .getAllModels()
-        .map(({ model }) =>
-          model
-            .updateMany({ id: { $in: uniqueIds }, category: 'vocab' }, { $set: { status } })
-            .exec(),
-        ),
+        .getAllLevels()
+        .map((lv) => lv.vocab.updateMany({ id: { $in: uniqueIds } }, { $set: { status } }).exec()),
     );
     const updatedCount = results.reduce((sum, r) => sum + (r.modifiedCount || 0), 0);
     return { updatedCount, status };
@@ -188,23 +168,22 @@ export class VocabService {
 
     const results = await Promise.all(
       this.hskCollections
-        .getAllModels()
-        .map(({ model }) =>
-          model.deleteMany({ id: { $in: uniqueIds }, category: 'vocab' }).exec(),
-        ),
+        .getAllLevels()
+        .map((lv) => lv.vocab.deleteMany({ id: { $in: uniqueIds } }).exec()),
     );
     const deletedCount = results.reduce((sum, r) => sum + (r.deletedCount || 0), 0);
     return { deletedCount };
   }
 
   async updateStatus(id: string, dto: UpdateVocabStatusDto) {
-    const found = await this.hskCollections.findByIdAcrossLevels(id, 'vocab');
+    const found = await this.hskCollections.findVocabById(id);
     if (!found) {
       throw new NotFoundException(`Vocab word "${id}" not found`);
     }
 
-    const updated = await found.model
-      .findOneAndUpdate({ id, category: 'vocab' }, { $set: { status: dto.status } }, { new: true })
+    const updated = await found.models.vocab
+      .findOneAndUpdate({ id }, { $set: { status: dto.status } }, { new: true })
+      .select('-_id -__v')
       .lean()
       .exec();
 
@@ -213,33 +192,17 @@ export class VocabService {
       const xpMap: Record<string, number> = { review: 5, learning: 10, mastered: 20, new: 0 };
       const xpGain = xpMap[dto.status] || 0;
       profile = await this.profileService.recordReview(xpGain);
-      if (xpGain > 0) {
-        await found.model.findOneAndUpdate(
-          { category: 'course_summary', level: found.level },
-          {
-            $setOnInsert: {
-              id: `hsk${found.level}_summary`,
-              category: 'course_summary',
-              level: found.level,
-              code: `HSK ${found.level}`,
-              order: 0,
-            },
-            $inc: { xpEarned: xpGain },
-          },
-          { upsert: true },
-        );
-      }
     }
 
     return { word: updated, profile };
   }
 
   async remove(id: string) {
-    const found = await this.hskCollections.findByIdAcrossLevels(id, 'vocab');
+    const found = await this.hskCollections.findVocabById(id);
     if (!found) {
       throw new NotFoundException(`Vocab word "${id}" not found`);
     }
-    await found.model.deleteOne({ id, category: 'vocab' }).exec();
+    await found.models.vocab.deleteOne({ id }).exec();
     return { deleted: true, id };
   }
 }

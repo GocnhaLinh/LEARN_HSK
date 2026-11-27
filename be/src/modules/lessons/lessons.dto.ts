@@ -1,6 +1,5 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -64,8 +63,8 @@ export class ImportVocabItemDto {
 
 export class ImportExerciseItemDto {
   @IsOptional()
-  @IsIn(['quiz', 'fill_blank', 'listen', 'translate'])
-  exerciseType?: 'quiz' | 'fill_blank' | 'listen' | 'translate';
+  @IsIn(['translate', 'fill_blank', 'writing', 'listen', 'quiz'])
+  exerciseType?: 'translate' | 'fill_blank' | 'writing' | 'listen' | 'quiz';
 
   @IsString()
   @IsNotEmpty()
@@ -75,12 +74,13 @@ export class ImportExerciseItemDto {
   @IsNotEmpty()
   question: string;
 
+  @IsOptional()
   @IsArray()
-  options: string[];
+  options?: string[];
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  correctAnswer: string;
+  correctAnswer?: string;
 
   @IsOptional()
   @IsString()
@@ -106,11 +106,11 @@ export class BulkImportLessonsDto {
   @Max(500)
   splitSize: number;
 
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => ImportVocabItemDto)
-  words: ImportVocabItemDto[];
+  words?: ImportVocabItemDto[];
 
   @IsOptional()
   @IsBoolean()

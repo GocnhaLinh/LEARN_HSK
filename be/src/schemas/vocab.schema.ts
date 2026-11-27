@@ -1,10 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
+import { CLEAN_SCHEMA_OPTIONS } from './schema-options';
 
 export type VocabDocument = HydratedDocument<Vocab>;
 export type VocabStatus = 'mastered' | 'learning' | 'review' | 'new';
 
-@Schema({ timestamps: true, collection: 'vocab' })
+@Schema({ ...CLEAN_SCHEMA_OPTIONS, collection: 'vocab' })
 export class Vocab {
   @Prop({ required: true, unique: true, index: true })
   id: string;
@@ -57,3 +58,6 @@ export class Vocab {
 }
 
 export const VocabSchema = SchemaFactory.createForClass(Vocab);
+VocabSchema.index({ order: 1, createdAt: -1 });
+VocabSchema.index({ status: 1, order: 1 });
+VocabSchema.index({ lessonId: 1, order: 1 });

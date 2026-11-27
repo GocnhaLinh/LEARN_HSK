@@ -123,8 +123,13 @@ export const CourseDetailPage: React.FC = () => {
       }
       const baseName = file.name.replace(/\.(docx|pdf|txt)$/i, '');
       openPreview(extracted, docExercises, baseName);
-      const exMsg = docExercises.length ? ` & ${docExercises.length} câu bài tập sẵn có` : '';
-      showToast(`Đã trích xuất thành công ${extracted.length} từ${exMsg} từ file!`, 'yellow');
+      const toastMsg =
+        extracted.length > 0 && docExercises.length > 0
+          ? `Đã trích xuất thành công ${extracted.length} từ & ${docExercises.length} câu bài tập từ file!`
+          : extracted.length > 0
+            ? `Đã trích xuất thành công ${extracted.length} từ từ file!`
+            : `Đã trích xuất thành công ${docExercises.length} câu bài tập từ file!`;
+      showToast(toastMsg, 'yellow');
     } catch (err: any) {
       setLoadingText(null);
       showToast(`Lỗi đọc file: ${err?.message || 'Không thể phân tích tài liệu.'}`, 'pink');
@@ -141,15 +146,34 @@ export const CourseDetailPage: React.FC = () => {
     );
   };
 
+  const updateExtractedExerciseField = <K extends keyof ExtractedExerciseRow>(
+    idx: number,
+    field: K,
+    value: ExtractedExerciseRow[K],
+  ) => {
+    setExtractedExercises((prev) =>
+      prev.map((row, i) => (i === idx ? { ...row, [field]: value } : row)),
+    );
+  };
+
   const toggleAllExtracted = (checked: boolean) => {
     setExtractedPreview((prev) => prev.map((r) => ({ ...r, selected: checked })));
+    setExtractedExercises((prev) => prev.map((r) => ({ ...r, selected: checked })));
   };
 
   const selectedCount = extractedPreview.filter((i) => i.selected).length;
+  const selectedExerciseCount = extractedExercises.filter((e) => e.selected !== false).length;
+  const bilingualExampleCount = useMemo(
+    () =>
+      extractedPreview.filter(
+        (r) => r.selected && r.exampleVi?.trim() && r.exampleZh?.trim(),
+      ).length,
+    [extractedPreview],
+  );
   const lessonCountPreview =
     splitSize > 0 && selectedCount > 0
       ? Math.ceil(selectedCount / splitSize)
-      : selectedCount > 0
+      : selectedCount > 0 || selectedExerciseCount > 0
         ? 1
         : 0;
 
@@ -169,25 +193,32 @@ export const CourseDetailPage: React.FC = () => {
 
   const MAX_PREVIEW_ROWS = 80;
   const visiblePreview = filteredPreview.slice(0, MAX_PREVIEW_ROWS);
+  const visibleExercisesPreview = extractedExercises.slice(0, MAX_PREVIEW_ROWS);
 
   const confirmInsert = async () => {
     const picked = extractedPreview.filter((r) => r.selected);
-    if (!picked.length) {
-      showToast('Hãy chọn ít nhất 1 từ vựng để chèn vào khóa học!', 'pink');
+    const pickedEx = extractedExercises.filter((e) => e.selected !== false);
+    if (!picked.length && !pickedEx.length) {
+      showToast('Hãy chọn ít nhất 1 từ vựng hoặc 1 câu bài tập để lưu vào khóa học!', 'pink');
       return;
     }
     const baseTitle =
-      lessonBaseName.trim() || `Giáo trình HSK ${level} (${new Date().toLocaleDateString('vi-VN')})`;
-    await bulkImportWords({
+      lessonBaseName.trim() ||
+      (picked.length
+        ? `Giáo trình HSK ${level} (${new Date().toLocaleDateString('vi-VN')})`
+        : `Bộ bài tập HSK ${level} (${new Date().toLocaleDateString('vi-VN')})`);
+    const saved = await bulkImportWords({
       level,
       baseTitle,
       splitSize,
       picked,
       autoGenerateExercises,
-      extractedExercises,
+      extractedExercises: pickedEx,
     });
-    setExtractedPreview([]);
-    setExtractedExercises([]);
+    if (saved) {
+      setExtractedPreview([]);
+      setExtractedExercises([]);
+    }
   };
 
   const practiceLessonWriting = (lessonId: string) => {
@@ -270,8 +301,8 @@ export const CourseDetailPage: React.FC = () => {
         }}
       />
 
-      {/* Inline parsing indicator & extracted preview (only appears after selecting a file) */}
-      {(loadingText || extractedPreview.length > 0) && (
+      {/* Inline parsing indicator & extracted preview (supports vocab+examples AND exercise-only files) */}
+      {(loadingText || extractedPreview.length > 0 || extractedExercises.length > 0) && (
         <div ref={previewCardRef} className="t-card p-5 sm:p-6 space-y-4">
           {loadingText && (
             <div className="p-4 rounded-lg bg-[#EFE078]/60 border border-[#141414] font-mono text-xs font-bold flex items-center justify-center gap-2">
@@ -280,35 +311,54 @@ export const CourseDetailPage: React.FC = () => {
             </div>
           )}
 
-          {extractedPreview.length > 0 && (
+          {(extractedPreview.length > 0 || extractedExercises.length > 0) && (
             <div className="space-y-4">
+              {extractedPreview.length === 0 && extractedExercises.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="pink" size="sm">
+                    FILE BÀI TẬP RIÊNG • {selectedExerciseCount} câu tự nhập (0 từ vựng)
+                  </Badge>
+                  <span className="font-mono text-[11px] opacity-75">
+                    Sẽ lưu trực tiếp vào <code>HSK{level}.exercises</code> (có thể chỉnh sửa câu hỏi &amp; đáp án trước khi lưu)
+                  </span>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                <div className="md:col-span-5">
+                <div className={extractedPreview.length > 0 ? 'md:col-span-5' : 'md:col-span-8'}>
                   <label className="font-mono text-[11px] font-bold uppercase block mb-1">
-                    Tên bộ bài học nhập từ file:
+                    {extractedPreview.length > 0
+                      ? 'Tên bộ bài học nhập từ file:'
+                      : 'Tên bộ bài tập nhập từ file:'}
                   </label>
                   <input
                     type="text"
                     value={lessonBaseName}
                     onChange={(e) => setLessonBaseName(e.target.value)}
                     className="w-full px-3 py-2 bg-white border-[1.5px] border-[#141414] rounded text-sm font-bold outline-none"
-                    placeholder="VD: NEW HSK5 3.0"
+                    placeholder={
+                      extractedPreview.length > 0
+                        ? 'VD: NEW HSK5 3.0'
+                        : 'VD: Bài tập dịch câu HSK 5 — Đề 1'
+                    }
                   />
                 </div>
-                <div className="md:col-span-3">
-                  <label className="font-mono text-[11px] font-bold uppercase block mb-1">
-                    Tự động chia bài học:
-                  </label>
-                  <select
-                    value={splitSize}
-                    onChange={(e) => setSplitSize(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-[#EFE078] border-[1.5px] border-[#141414] rounded font-mono text-xs font-bold outline-none"
-                  >
-                    <option value={25}>25 từ / bài (Gọn nhẹ)</option>
-                    <option value={50}>50 từ / bài (Khuyên dùng)</option>
-                    <option value={0}>Gộp chung 1 bài</option>
-                  </select>
-                </div>
+                {extractedPreview.length > 0 && (
+                  <div className="md:col-span-3">
+                    <label className="font-mono text-[11px] font-bold uppercase block mb-1">
+                      Tự động chia bài học:
+                    </label>
+                    <select
+                      value={splitSize}
+                      onChange={(e) => setSplitSize(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-[#EFE078] border-[1.5px] border-[#141414] rounded font-mono text-xs font-bold outline-none"
+                    >
+                      <option value={25}>25 từ / bài (Gọn nhẹ)</option>
+                      <option value={50}>50 từ / bài (Khuyên dùng)</option>
+                      <option value={0}>Gộp chung 1 bài</option>
+                    </select>
+                  </div>
+                )}
                 <div className="md:col-span-4 flex flex-wrap items-center justify-end gap-1.5 font-mono text-xs">
                   <button
                     type="button"
@@ -337,84 +387,154 @@ export const CourseDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              <label className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#CBEAD8]/60 border border-[#141414] cursor-pointer select-none">
-                <span className="font-mono text-xs font-bold text-[#111111]">
-                  Tự động sinh bài tập (Điền từ từ câu ví dụ + Trắc nghiệm + Dịch câu) cho mỗi bài học
-                  {extractedExercises.length > 0
-                    ? ` (+ ${extractedExercises.length} bài tập đọc trực tiếp từ file)`
-                    : ''}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={autoGenerateExercises}
-                  onChange={(e) => setAutoGenerateExercises(e.target.checked)}
-                  className="w-4 h-4 accent-[#111111] shrink-0"
-                />
-              </label>
+              {extractedPreview.length > 0 && (
+                <>
+                  <label className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#CBEAD8]/60 border border-[#141414] cursor-pointer select-none">
+                    <span className="font-mono text-xs font-bold text-[#111111]">
+                      Chuyển các câu ví dụ thành bài tập tự nhập tiếng Trung (chỉ hiện tiếng Việt, ẩn chữ Hán khi làm bài)
+                      {bilingualExampleCount > 0
+                        ? ` — phát hiện ${bilingualExampleCount} câu ví dụ song ngữ`
+                        : ''}
+                      {selectedExerciseCount > 0
+                        ? ` (+ ${selectedExerciseCount} câu bài tập trích riêng)`
+                        : ''}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={autoGenerateExercises}
+                      onChange={(e) => setAutoGenerateExercises(e.target.checked)}
+                      className="w-4 h-4 accent-[#111111] shrink-0"
+                    />
+                  </label>
 
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 opacity-50 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={extractSearch}
-                  onChange={(e) => setExtractSearch(e.target.value)}
-                  placeholder="Tìm nhanh trong danh sách từ vừa trích xuất..."
-                  className="w-full pl-8 pr-3 py-1.5 bg-white border border-[#141414]/40 rounded font-mono text-xs outline-none focus:border-[#141414]"
-                />
-              </div>
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 opacity-50 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={extractSearch}
+                      onChange={(e) => setExtractSearch(e.target.value)}
+                      placeholder="Tìm nhanh trong danh sách từ vừa trích xuất..."
+                      className="w-full pl-8 pr-3 py-1.5 bg-white border border-[#141414]/40 rounded font-mono text-xs outline-none focus:border-[#141414]"
+                    />
+                  </div>
 
-              <div className="max-h-72 overflow-y-auto border-[1.5px] border-[#141414] rounded-lg bg-white divide-y divide-stone-200">
-                {visiblePreview.map(({ row, idx }) => (
-                  <div key={`${row.hanzi}_${idx}`} className="p-2.5 grid grid-cols-12 gap-2 items-center text-xs">
-                    <div className="col-span-1 flex justify-center">
-                      <input
-                        type="checkbox"
-                        checked={row.selected}
-                        onChange={(e) => updateExtractedField(idx, 'selected', e.target.checked)}
-                        className="w-4 h-4 accent-[#111111]"
-                      />
-                    </div>
-                    <div className="col-span-3 sm:col-span-2 font-serifcn text-lg font-bold text-[#141414]">
-                      {row.hanzi}
-                    </div>
-                    <div className="col-span-4 sm:col-span-3">
-                      <input
-                        type="text"
-                        value={row.pinyin}
-                        onChange={(e) => updateExtractedField(idx, 'pinyin', e.target.value)}
-                        placeholder="Pinyin..."
-                        className="w-full px-2 py-1 bg-[#F8F6F1] border border-[#141414]/30 rounded font-mono text-xs outline-none focus:border-[#141414]"
-                      />
-                    </div>
-                    <div className="col-span-4 sm:col-span-6 space-y-1">
-                      <input
-                        type="text"
-                        value={row.meaning}
-                        onChange={(e) => updateExtractedField(idx, 'meaning', e.target.value)}
-                        placeholder="Nghĩa tiếng Việt..."
-                        className="w-full px-2 py-1 bg-[#F8F6F1] border border-[#141414]/30 rounded text-xs outline-none focus:border-[#141414]"
-                      />
-                      {row.exampleZh && (
-                        <div className="font-serifcn text-[11px] opacity-75 truncate">
-                          VD: {row.exampleZh}
-                          {row.exampleVi ? ` — ${row.exampleVi}` : ''}
+                  <div className="max-h-72 overflow-y-auto border-[1.5px] border-[#141414] rounded-lg bg-white divide-y divide-stone-200">
+                    {visiblePreview.map(({ row, idx }) => (
+                      <div key={`${row.hanzi}_${idx}`} className="p-2.5 grid grid-cols-12 gap-2 items-center text-xs">
+                        <div className="col-span-1 flex justify-center">
+                          <input
+                            type="checkbox"
+                            checked={row.selected}
+                            onChange={(e) => updateExtractedField(idx, 'selected', e.target.checked)}
+                            className="w-4 h-4 accent-[#111111]"
+                          />
                         </div>
-                      )}
-                    </div>
+                        <div className="col-span-3 sm:col-span-2 font-serifcn text-lg font-bold text-[#141414]">
+                          {row.hanzi}
+                        </div>
+                        <div className="col-span-4 sm:col-span-3">
+                          <input
+                            type="text"
+                            value={row.pinyin}
+                            onChange={(e) => updateExtractedField(idx, 'pinyin', e.target.value)}
+                            placeholder="Pinyin..."
+                            className="w-full px-2 py-1 bg-[#F8F6F1] border border-[#141414]/30 rounded font-mono text-xs outline-none focus:border-[#141414]"
+                          />
+                        </div>
+                        <div className="col-span-4 sm:col-span-6 space-y-1">
+                          <input
+                            type="text"
+                            value={row.meaning}
+                            onChange={(e) => updateExtractedField(idx, 'meaning', e.target.value)}
+                            placeholder="Nghĩa tiếng Việt..."
+                            className="w-full px-2 py-1 bg-[#F8F6F1] border border-[#141414]/30 rounded text-xs outline-none focus:border-[#141414]"
+                          />
+                          {row.exampleZh && (
+                            <div className="font-serifcn text-[11px] opacity-75 truncate">
+                              VD: {row.exampleZh}
+                              {row.exampleVi ? ` — ${row.exampleVi}` : ''}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {filteredPreview.length > MAX_PREVIEW_ROWS && (
+                      <div className="p-3 text-center font-mono text-[11px] bg-[#EFE078]/40 font-bold">
+                        Đang hiển thị {MAX_PREVIEW_ROWS} / {filteredPreview.length} từ để mượt trình duyệt — toàn bộ{' '}
+                        {selectedCount} từ được chọn sẽ được chèn đầy đủ vào MongoDB!
+                      </div>
+                    )}
                   </div>
-                ))}
-                {filteredPreview.length > MAX_PREVIEW_ROWS && (
-                  <div className="p-3 text-center font-mono text-[11px] bg-[#EFE078]/40 font-bold">
-                    Đang hiển thị {MAX_PREVIEW_ROWS} / {filteredPreview.length} từ để mượt trình duyệt — toàn bộ{' '}
-                    {selectedCount} từ được chọn sẽ được chèn đầy đủ vào MongoDB!
+                </>
+              )}
+
+              {/* Editable Preview for Standalone Extracted Exercises */}
+              {extractedExercises.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[11px] font-bold uppercase opacity-75">
+                      Danh sách bài tập trích từ file ({selectedExerciseCount}/{extractedExercises.length} câu)
+                    </span>
+                    <span className="font-mono text-[10px] opacity-60">
+                      Cột trái: Đề bài hiển thị • Cột phải: Đáp án đối chiếu (để trống nếu không có)
+                    </span>
                   </div>
-                )}
-              </div>
+                  <div className="max-h-72 overflow-y-auto border-[1.5px] border-[#141414] rounded-lg bg-white divide-y divide-stone-200">
+                    {visibleExercisesPreview.map((ex, idx) => (
+                      <div key={`ex_prev_${idx}`} className="p-2.5 grid grid-cols-12 gap-2 items-center text-xs">
+                        <div className="col-span-1 flex justify-center">
+                          <input
+                            type="checkbox"
+                            checked={ex.selected !== false}
+                            onChange={(e) =>
+                              updateExtractedExerciseField(idx, 'selected', e.target.checked)
+                            }
+                            className="w-4 h-4 accent-[#111111]"
+                          />
+                        </div>
+                        <div className="col-span-6">
+                          <input
+                            type="text"
+                            value={ex.question}
+                            onChange={(e) =>
+                              updateExtractedExerciseField(idx, 'question', e.target.value)
+                            }
+                            placeholder="Nội dung đề bài..."
+                            className="w-full px-2 py-1.5 bg-[#F8F6F1] border border-[#141414]/30 rounded text-xs outline-none focus:border-[#141414]"
+                          />
+                        </div>
+                        <div className="col-span-5">
+                          <input
+                            type="text"
+                            value={ex.correctAnswer}
+                            onChange={(e) =>
+                              updateExtractedExerciseField(idx, 'correctAnswer', e.target.value)
+                            }
+                            placeholder="Đáp án đối chiếu (tiếng Trung / kết quả)..."
+                            className="w-full px-2 py-1.5 bg-[#CBEAD8]/30 border border-[#141414]/30 rounded font-serifcn text-xs outline-none focus:border-[#141414]"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    {extractedExercises.length > MAX_PREVIEW_ROWS && (
+                      <div className="p-3 text-center font-mono text-[11px] bg-[#EFE078]/40 font-bold">
+                        Đang hiển thị {MAX_PREVIEW_ROWS} / {extractedExercises.length} câu — toàn bộ{' '}
+                        {selectedExerciseCount} câu được chọn sẽ được lưu đầy đủ vào MongoDB!
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <span className="font-mono text-xs font-bold">
-                  Đang chọn {selectedCount} / {extractedPreview.length} từ → sẽ tạo {lessonCountPreview} bài học
-                  {autoGenerateExercises ? ` + bài tập tự động` : ''}
+                  {selectedCount > 0
+                    ? `Đang chọn ${selectedCount} từ → ${lessonCountPreview} bài học${
+                        autoGenerateExercises
+                          ? ` + ${bilingualExampleCount || 'tự sinh'} bài tập tự nhập`
+                          : ''
+                      }${selectedExerciseCount > 0 ? ` + ${selectedExerciseCount} câu từ file` : ''}`
+                    : `Đang chọn ${selectedExerciseCount} câu bài tập tự nhập (không kèm từ vựng)`}
                 </span>
                 <button
                   type="button"
@@ -647,14 +767,14 @@ export const CourseDetailPage: React.FC = () => {
       <button
         type="button"
         onClick={() => {
-          if (extractedPreview.length > 0) {
+          if (extractedPreview.length > 0 || extractedExercises.length > 0) {
             previewCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           } else {
             fileInputRef.current?.click();
           }
         }}
-        title={`Tải giáo trình .PDF / .DOCX / .TXT vào ${meta.code}`}
-        aria-label={`Tải giáo trình vào ${meta.code}`}
+        title={`Tải giáo trình hoặc file bài tập .PDF / .DOCX / .TXT vào ${meta.code}`}
+        aria-label={`Tải tài liệu vào ${meta.code}`}
         className={`t-btn-black fixed right-4 sm:right-6 z-40 h-11 sm:h-12 px-3.5 sm:px-4 !rounded-full flex items-center gap-2 font-mono text-xs font-bold transition-all duration-300 ${
           scrolledDown ? 'bottom-[152px] xl:bottom-20' : 'bottom-24 xl:bottom-6'
         }`}
@@ -665,11 +785,15 @@ export const CourseDetailPage: React.FC = () => {
           <FileUp className="w-4 h-4 text-[#EFE078] shrink-0" />
         )}
         <span className="hidden sm:inline whitespace-nowrap">
-          {extractedPreview.length > 0 ? `Xem ${selectedCount} từ đã đọc` : 'Tải giáo trình'}
+          {extractedPreview.length > 0
+            ? `Xem ${selectedCount} từ đã đọc`
+            : extractedExercises.length > 0
+              ? `Xem ${selectedExerciseCount} bài tập đã đọc`
+              : 'Tải giáo trình / bài tập'}
         </span>
-        {extractedPreview.length > 0 && (
+        {(extractedPreview.length > 0 || extractedExercises.length > 0) && (
           <span className="sm:hidden px-1.5 py-0.5 bg-[#EFE078] text-[#111111] rounded-full text-[10px] font-bold">
-            {selectedCount}
+            {extractedPreview.length > 0 ? selectedCount : selectedExerciseCount}
           </span>
         )}
       </button>

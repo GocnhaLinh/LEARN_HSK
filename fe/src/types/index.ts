@@ -84,11 +84,14 @@ export interface ExtractedVocabRow {
   exampleVi: string;
 }
 
+export type ExerciseType = 'translate' | 'fill_blank' | 'writing' | 'listen' | 'quiz';
+
 export interface ExtractedExerciseRow {
-  exerciseType: 'quiz' | 'fill_blank' | 'listen' | 'translate';
+  selected?: boolean;
+  exerciseType: ExerciseType;
   title: string;
   question: string;
-  options: string[];
+  options?: string[];
   correctAnswer: string;
   explanation?: string;
   xpReward?: number;
@@ -104,10 +107,10 @@ export interface ExerciseItem {
   id: string;
   level: number;
   lessonId: string;
-  exerciseType: 'quiz' | 'fill_blank' | 'listen' | 'translate';
+  exerciseType: ExerciseType;
   title: string;
   question: string;
-  options: string[];
+  options?: string[];
   correctAnswer: string;
   explanation?: string;
   xpReward: number;

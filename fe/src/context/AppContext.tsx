@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import { DEFAULT_PROFILE } from "@/data/defaults";
+import { exercisesKeys } from "@/features/exercises/hooks/useExercisesQuery";
 import { notesKeys } from "@/features/notes/hooks/useNotes";
 import { handwritingKeys } from "@/features/writing/hooks/useHandwriting";
 import { getTodayISO } from "@/lib/date-utils";
@@ -86,7 +87,7 @@ interface AppContextValue {
     picked: ExtractedVocabRow[];
     autoGenerateExercises?: boolean;
     extractedExercises?: ExtractedExerciseRow[];
-  }) => Promise<void>;
+  }) => Promise<boolean>;
   recordGameWin: (
     xpAmount: number,
     label: string,
@@ -98,15 +99,6 @@ interface AppContextValue {
       combo?: number;
     },
   ) => Promise<void>;
-  submitCourseExercise: (
-    id: string,
-    answer: string,
-    ev?: ClickCoords,
-  ) => Promise<{
-    correct: boolean;
-    correctAnswer: string;
-    explanation: string;
-  }>;
   exportDataJSON: () => Promise<void>;
   importDataJSON: (rawJson: string) => Promise<void>;
 }
@@ -186,9 +178,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   lessonsRef.current = lessons;
   const vocabRef = useRef(vocab);
   vocabRef.current = vocab;
-  const exercisesRef = useRef(exercises);
-  exercisesRef.current = exercises;
-  const submittingExIdsRef = useRef<Set<string>>(new Set());
 
   // Sync theme attribute to <html>
   useEffect(() => {
@@ -692,9 +681,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       autoGenerateExercises?: boolean;
       extractedExercises?: ExtractedExerciseRow[];
     }) => {
-      const chunkSize = splitSize > 0 ? splitSize : picked.length;
-      const totalChunks = Math.ceil(picked.length / chunkSize);
+      const chunkSize = splitSize > 0 ? splitSize : Math.max(1, picked.length);
+      const totalChunks = picked.length > 0 ? Math.ceil(picked.length / chunkSize) : extractedExercises.length > 0 ? 1 : 0;
       let createdExerciseCount = 0;
+
+      let savedToDb = false;
 
       try {
         const res = await api.bulkImportLessons({
@@ -712,64 +703,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           })),
           extractedExercises,
         });
-        setLessons((prev) => [...res.lessons, ...prev]);
-        setVocab((prev) => [...res.words, ...prev]);
+        if (Array.isArray(res.lessons) && res.lessons.length) {
+          setLessons((prev) => [...res.lessons, ...prev]);
+        }
+        if (Array.isArray(res.words) && res.words.length) {
+          setVocab((prev) => [...res.words, ...prev]);
+        }
         if (Array.isArray(res.exercises) && res.exercises.length) {
           setExercises((prev) => [...res.exercises, ...prev]);
+          queryClient.setQueryData<ExerciseItem[]>(
+            exercisesKeys.byLevel(level),
+            (prev = []) => [...res.exercises, ...prev],
+          );
+          void queryClient.invalidateQueries({
+            queryKey: exercisesKeys.byLevel(level),
+          });
           createdExerciseCount = res.exercises.length;
         }
         if (res.profile) setProfile((prev) => ({ ...prev, ...res.profile }));
         setApiConnected(true);
-      } catch {
-        const newLessons: Lesson[] = [];
-        const newWords: VocabWord[] = [];
-        const stamp = Date.now();
-        for (let c = 0; c < totalChunks; c++) {
-          const slice = picked.slice(c * chunkSize, (c + 1) * chunkSize);
-          const lessonId = `hsk${level}-doc-${stamp}-${c + 1}`;
-          const title =
-            totalChunks > 1
-              ? `${baseTitle} — Phần ${c + 1} (${slice.length} từ)`
-              : baseTitle;
-          newLessons.push({
-            id: lessonId,
-            level,
-            title,
-            desc: `Tự động trích xuất ${slice.length} từ vựng từ tài liệu tải lên.`,
-            fromFile: true,
-          });
-          slice.forEach((item, i) => {
-            newWords.push({
-              id: `docw_${stamp}_${c}_${i}`,
-              lessonId,
-              hanzi: item.hanzi,
-              pinyin: item.pinyin || "—",
-              hanviet: "TỪ GIÁO TRÌNH",
-              english: item.english || "",
-              meaning: item.meaning || "Từ mới từ file tải lên",
-              pos: "Từ vựng",
-              level,
-              status: "new",
-              custom: true,
-              note: `Nhập từ "${title}".`,
-              exampleZh: item.exampleZh || item.hanzi,
-              exampleVi: item.exampleVi || item.meaning || item.hanzi,
-            });
-          });
-        }
-        setLessons((prev) => [...newLessons, ...prev]);
-        setVocab((prev) => [...newWords, ...prev]);
-        setProfile((prev) => ({ ...prev, xp: prev.xp + 30 }));
+        savedToDb = true;
+      } catch (err: any) {
+        setApiConnected(false);
+        showToast(
+          `Không kết nối được Backend (${err?.message || "Port 3001 chưa chạy"}) — chưa lưu vào MongoDB! Hãy kiểm tra terminal npm run dev:be.`,
+          "pink",
+        );
+        return false;
       }
 
-      const exSuffix =
-        createdExerciseCount > 0 ? ` & tạo ${createdExerciseCount} bài tập` : "";
-      triggerXpEffects(
-        30,
-        `Đã chèn ${picked.length} từ (${totalChunks} bài)${exSuffix} vào HSK ${level}`,
-      );
+      if (!savedToDb) return false;
+
+      const summaryMsg =
+        picked.length > 0
+          ? `Đã lưu ${picked.length} từ (${totalChunks} bài)${
+              createdExerciseCount > 0 ? ` & ${createdExerciseCount} bài tập tự nhập` : ""
+            } vào MongoDB HSK ${level}`
+          : `Đã lưu ${createdExerciseCount} câu bài tập vào MongoDB HSK ${level}`;
+      triggerXpEffects(30, summaryMsg);
+      return true;
     },
-    [triggerXpEffects],
+    [showToast, triggerXpEffects],
   );
 
   const recordGameWin = useCallback(
@@ -811,88 +785,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     },
     [triggerXpEffects],
-  );
-
-  const submitCourseExercise = useCallback(
-    async (id: string, answer: string, ev?: ClickCoords) => {
-      const localEx = exercisesRef.current.find((e) => e.id === id);
-
-      // Prevent repeat point farming if already completed or currently submitting
-      if (localEx?.completed) {
-        return {
-          correct: answer.trim() === localEx.correctAnswer.trim(),
-          correctAnswer: localEx.correctAnswer,
-          explanation: localEx.explanation || "",
-        };
-      }
-      if (submittingExIdsRef.current.has(id)) {
-        return {
-          correct: false,
-          correctAnswer: localEx?.correctAnswer || "",
-          explanation: localEx?.explanation || "",
-        };
-      }
-
-      submittingExIdsRef.current.add(id);
-      try {
-        const res = await api.submitExercise(id, answer);
-        if (res.correct) {
-          setExercises((prev) =>
-            prev.map((e) => (e.id === id ? { ...e, completed: true } : e)),
-          );
-          if (res.profile) setProfile((prev) => ({ ...prev, ...res.profile }));
-          if (res.xpEarned > 0 && !res.alreadyCompleted) {
-            triggerXpEffects(res.xpEarned, "Chính xác! Hoàn thành bài tập", ev);
-          } else {
-            showToast("Câu này đã hoàn thành trước đó!");
-          }
-        } else {
-          showToast(
-            `Chưa chính xác! Đáp án đúng: ${res.correctAnswer}`,
-            "pink",
-          );
-        }
-        setApiConnected(true);
-        return {
-          correct: res.correct,
-          correctAnswer: res.correctAnswer,
-          explanation: res.explanation,
-        };
-      } catch {
-        const correct =
-          !!localEx && answer.trim() === localEx.correctAnswer.trim();
-        if (correct && localEx) {
-          const alreadyDone = !!localEx.completed;
-          setExercises((prev) =>
-            prev.map((e) => (e.id === id ? { ...e, completed: true } : e)),
-          );
-          if (!alreadyDone) {
-            setProfile((prev) => ({
-              ...prev,
-              xp: prev.xp + (localEx.xpReward || 20),
-            }));
-            triggerXpEffects(
-              localEx.xpReward || 20,
-              "Chính xác! Hoàn thành bài tập",
-              ev,
-            );
-          }
-        } else {
-          showToast(
-            `Chưa chính xác! Đáp án đúng: ${localEx?.correctAnswer || ""}`,
-            "pink",
-          );
-        }
-        return {
-          correct,
-          correctAnswer: localEx?.correctAnswer || "",
-          explanation: localEx?.explanation || "",
-        };
-      } finally {
-        submittingExIdsRef.current.delete(id);
-      }
-    },
-    [showToast, triggerXpEffects],
   );
 
   const exportDataJSON = useCallback(async () => {
@@ -988,7 +880,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       batchDeleteWords,
       bulkImportWords,
       recordGameWin,
-      submitCourseExercise,
       exportDataJSON,
       importDataJSON,
     }),
@@ -1015,7 +906,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       batchDeleteWords,
       bulkImportWords,
       recordGameWin,
-      submitCourseExercise,
       exportDataJSON,
       importDataJSON,
     ],

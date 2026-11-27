@@ -49,24 +49,14 @@ const DEFAULT_CONFIG: ExamConfig = {
   lessonId: 'all',
   exerciseType: 'all',
   timeLimitMinutes: 0,
-  shuffleOptions: true,
   prioritizeUnseen: true,
 };
 
-const LETTER_KEY_TO_INDEX: Record<string, number> = {
-  a: 0,
-  b: 1,
-  c: 2,
-  d: 3,
-};
-
 /**
- * Full 3-phase Mock Exam session controller (`setup` -> `taking` -> `result`).
+ * Full 3-phase Typed-Input Mock Exam session controller (`setup` -> `taking` -> `result`).
+ * - 100% typed-input (NO multiple choice); compares against expected answers only after submit.
  * - Strictly READ-ONLY against MongoDB (zero POST/PATCH writes).
- * - Persists local draft, attempt history (with review records), seen coverage,
- *   and mistake bank in `localStorage` only.
- * - Locks global app navigation (`useExamLockStore`), `beforeunload`, and
- *   browser Back button (`popstate`) while taking.
+ * - Persists local draft, history (with review records), seen coverage, and mistake bank in `localStorage`.
  */
 export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
   const showToast = useToastStore((s) => s.showToast);
@@ -75,7 +65,6 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
   const [phase, setPhase] = useState<ExamPhase>('setup');
   const [config, setConfig] = useState<ExamConfig>(DEFAULT_CONFIG);
   const [viewMode, setViewMode] = useState<ExamViewMode>('single');
-  const [autoAdvance, setAutoAdvance] = useState(false);
   const [activeExamLabel, setActiveExamLabel] = useState('');
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -88,20 +77,11 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all');
   const [confirmModal, setConfirmModal] = useState<ExamConfirmModal>(null);
 
-  const [history, setHistory] = useState<LocalExamAttempt[]>(() =>
-    readExamHistory(level),
-  );
-  const [wrongIds, setWrongIds] = useState<string[]>(() =>
-    readWrongQuestionIds(level),
-  );
-  const [seenIds, setSeenIds] = useState<string[]>(() =>
-    readSeenQuestionIds(level),
-  );
-  const [savedDraft, setSavedDraft] = useState<LocalExamDraft | null>(() =>
-    readExamDraft(level),
-  );
+  const [history, setHistory] = useState<LocalExamAttempt[]>(() => readExamHistory(level));
+  const [wrongIds, setWrongIds] = useState<string[]>(() => readWrongQuestionIds(level));
+  const [seenIds, setSeenIds] = useState<string[]>(() => readSeenQuestionIds(level));
+  const [savedDraft, setSavedDraft] = useState<LocalExamDraft | null>(() => readExamDraft(level));
 
-  // Refs for stable access inside timer, beforeunload, and popstate listeners
   const phaseRef = useRef(phase);
   const answersRef = useRef(answers);
   const flaggedRef = useRef(flaggedIds);
@@ -110,7 +90,6 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
   const elapsedRef = useRef(elapsedSeconds);
   const remainingRef = useRef(remainingSeconds);
   const labelRef = useRef(activeExamLabel);
-  const autoAdvanceTimerRef = useRef<number | null>(null);
 
   phaseRef.current = phase;
   answersRef.current = answers;
@@ -121,40 +100,26 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
   remainingRef.current = remainingSeconds;
   labelRef.current = activeExamLabel;
 
-  const buildCurrentDraftPayload = useCallback((): LocalExamDraft | null => {
+  // Write draft directly to localStorage without calling setSavedDraft while taking
+  // (avoids unnecessary re-renders on every keystroke or 5s timer checkpoint)
+  const persistDraftNow = useCallback(() => {
     const qs = questionsRef.current;
-    if (!qs.length) return null;
-    const optionOrderById: Record<string, string[]> = {};
-    qs.forEach((q) => {
-      optionOrderById[q.id] = q.options;
-    });
-    return {
+    if (!qs.length) return;
+    saveExamDraft({
       level,
-      examLabel: labelRef.current || `Đề kiểm tra ${qs.length} câu`,
+      examLabel: labelRef.current || `Bài kiểm tra ${qs.length} câu`,
       questionIds: qs.map((q) => q.id),
-      optionOrderById,
       answers: answersRef.current,
       flaggedIds: flaggedRef.current,
       currentIndex: currentIndexRef.current,
       elapsedSeconds: elapsedRef.current,
       remainingSeconds: remainingRef.current,
       updatedAt: new Date().toISOString(),
-    };
+    });
   }, [level]);
-
-  const persistDraftNow = useCallback(() => {
-    const draft = buildCurrentDraftPayload();
-    if (!draft) return;
-    saveExamDraft(draft);
-    setSavedDraft(draft);
-  }, [buildCurrentDraftPayload]);
 
   // Reset session and reload local data when level route param changes
   useEffect(() => {
-    if (autoAdvanceTimerRef.current !== null) {
-      window.clearTimeout(autoAdvanceTimerRef.current);
-      autoAdvanceTimerRef.current = null;
-    }
     setPhase('setup');
     setConfig(DEFAULT_CONFIG);
     setQuestions([]);
@@ -172,15 +137,6 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
     setSavedDraft(readExamDraft(level));
   }, [level]);
 
-  // Clean up pending auto-advance timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (autoAdvanceTimerRef.current !== null) {
-        window.clearTimeout(autoAdvanceTimerRef.current);
-      }
-    };
-  }, []);
-
   // Sync focus-lock state with global Layout store and always release on unmount
   useEffect(() => {
     setExamActive(phase === 'taking');
@@ -189,13 +145,16 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
     };
   }, [phase, setExamActive]);
 
-  // Auto-save draft whenever answers, flags, or question position change mid-exam
+  // Debounced auto-save draft (400ms) so typing Chinese IME never blocks keystrokes
   useEffect(() => {
     if (phase !== 'taking' || !questions.length) return;
-    persistDraftNow();
+    const timer = window.setTimeout(() => {
+      persistDraftNow();
+    }, 400);
+    return () => window.clearTimeout(timer);
   }, [phase, questions, answers, flaggedIds, currentIndex, persistDraftNow]);
 
-  // Periodic timer draft checkpoint (every 5s) + beforeunload guard
+  // Warn before accidentally closing/reloading browser tab mid-exam
   useEffect(() => {
     if (phase !== 'taking') return;
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -222,17 +181,11 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [phase]);
 
-  // Escape key closes submit/exit confirmation modals
   const closeConfirmModal = useCallback(() => setConfirmModal(null), []);
   useEscapeKey(confirmModal !== null, closeConfirmModal);
 
   const finalizeExam = useCallback(
     (reason?: 'timeout') => {
-      if (autoAdvanceTimerRef.current !== null) {
-        window.clearTimeout(autoAdvanceTimerRef.current);
-        autoAdvanceTimerRef.current = null;
-      }
-
       const currentQuestions = questionsRef.current;
       if (!currentQuestions.length) return;
 
@@ -240,7 +193,7 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
       const attempt: LocalExamAttempt = {
         id: `exam_${Date.now()}`,
         level,
-        label: labelRef.current || `Đề kiểm tra ${currentQuestions.length} câu`,
+        label: labelRef.current || `Bài kiểm tra ${currentQuestions.length} câu`,
         total: summary.total,
         correctCount: summary.correctCount,
         wrongCount: summary.wrongCount,
@@ -256,11 +209,12 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
         })),
       };
 
+      // Only add gradable missed questions to the wrong-answer notebook
       const missedIds = summary.items
-        .filter((item) => !item.isCorrect)
+        .filter((item) => item.hasAnswerKey && !item.isCorrect)
         .map((item) => item.question.id);
       const masteredIds = summary.items
-        .filter((item) => item.isCorrect)
+        .filter((item) => item.hasAnswerKey && item.isCorrect)
         .map((item) => item.question.id);
 
       const nextHistory = appendExamHistory(attempt);
@@ -284,15 +238,20 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
 
       if (reason === 'timeout') {
         showToast('Hết giờ làm bài! Hệ thống đã tự động chấm điểm.', 'pink');
+      } else if (summary.score10 === null) {
+        showToast(
+          `Đã nộp bài tự luận (${summary.answered}/${summary.total} câu đã nhập).`,
+          'yellow',
+        );
       } else if (summary.score10 >= 8) {
         spawnConfetti();
         showToast(
-          `Xuất sắc! Bạn đạt ${summary.score10.toFixed(1)}/10 (${summary.correctCount}/${summary.total} câu đúng).`,
+          `Xuất sắc! Bạn đạt ${summary.score10.toFixed(1)}/10 (${summary.correctCount}/${summary.gradableCount} câu đúng).`,
           'yellow',
         );
       } else {
         showToast(
-          `Đã nộp bài: ${summary.score10.toFixed(1)}/10 (${summary.correctCount}/${summary.total} câu đúng).`,
+          `Đã nộp bài: ${summary.score10.toFixed(1)}/10 (${summary.correctCount}/${summary.gradableCount} câu đúng).`,
           'dark',
         );
       }
@@ -302,7 +261,7 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
     [level, setExamActive, showToast],
   );
 
-  // Live timer during 'taking' phase (counts up, counts down if timed, 60s warning, periodic draft save)
+  // Live timer during 'taking' phase
   useEffect(() => {
     if (phase !== 'taking') return;
     const timer = window.setInterval(() => {
@@ -355,12 +314,10 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
   }, [pool]);
 
   const poolIdSet = useMemo(() => new Set(pool.map((ex) => ex.id)), [pool]);
-
   const validWrongIds = useMemo(
     () => wrongIds.filter((id) => poolIdSet.has(id)),
     [poolIdSet, wrongIds],
   );
-
   const validSeenIds = useMemo(
     () => seenIds.filter((id) => poolIdSet.has(id)),
     [poolIdSet, seenIds],
@@ -371,7 +328,7 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
     const validIds = savedDraft.questionIds.filter((id) => poolIdSet.has(id));
     if (validIds.length === 0) return null;
     const answeredInDraft = validIds.reduce(
-      (acc, id) => (savedDraft.answers?.[id] ? acc + 1 : acc),
+      (acc, id) => (savedDraft.answers?.[id]?.trim() ? acc + 1 : acc),
       0,
     );
     return {
@@ -385,12 +342,7 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
   }, [savedDraft, pool.length, poolIdSet]);
 
   const answeredCount = useMemo(
-    () =>
-      questions.reduce(
-        (acc, q) =>
-          answers[q.id] !== undefined && answers[q.id] !== '' ? acc + 1 : acc,
-        0,
-      ),
+    () => questions.reduce((acc, q) => (answers[q.id]?.trim() ? acc + 1 : acc), 0),
     [questions, answers],
   );
   const unansweredCount = Math.max(0, questions.length - answeredCount);
@@ -404,10 +356,6 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
       if (!picked.length) {
         showToast('Không có câu hỏi nào khớp với bộ lọc hiện tại.', 'pink');
         return;
-      }
-      if (autoAdvanceTimerRef.current !== null) {
-        window.clearTimeout(autoAdvanceTimerRef.current);
-        autoAdvanceTimerRef.current = null;
       }
       setQuestions(picked);
       setAnswers({});
@@ -439,22 +387,18 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
   }, [pool, config, validSeenIds, launchExam]);
 
   const startWrongBankExam = useCallback(() => {
-    const picked = buildExamFromIds(pool, validWrongIds, config.shuffleOptions);
-    launchExam(
-      picked,
-      `Ôn câu hay sai (${picked.length} câu)`,
-      config.timeLimitMinutes,
-    );
-  }, [pool, validWrongIds, config.shuffleOptions, config.timeLimitMinutes, launchExam]);
+    const picked = buildExamFromIds(pool, validWrongIds);
+    launchExam(picked, `Ôn câu hay sai (${picked.length} câu)`, config.timeLimitMinutes);
+  }, [pool, validWrongIds, config.timeLimitMinutes, launchExam]);
 
   const startRetryCurrentWrong = useCallback(() => {
     if (!gradeResult) return;
     const missedIds = gradeResult.items
-      .filter((item) => !item.isCorrect)
+      .filter((item) => item.hasAnswerKey && !item.isCorrect)
       .map((item) => item.question.id);
-    const picked = buildExamFromIds(pool, missedIds, config.shuffleOptions);
+    const picked = buildExamFromIds(pool, missedIds);
     launchExam(picked, `Làm lại câu sai (${picked.length} câu)`, 0);
-  }, [gradeResult, pool, config.shuffleOptions, launchExam]);
+  }, [gradeResult, pool, launchExam]);
 
   const resumeDraft = useCallback(() => {
     if (!savedDraft) return;
@@ -507,24 +451,9 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
     [pool, showToast],
   );
 
-  const selectAnswer = useCallback(
-    (questionId: string, option: string) => {
-      setAnswers((prev) => ({ ...prev, [questionId]: option }));
-
-      if (autoAdvance && viewMode === 'single') {
-        if (autoAdvanceTimerRef.current !== null) {
-          window.clearTimeout(autoAdvanceTimerRef.current);
-        }
-        autoAdvanceTimerRef.current = window.setTimeout(() => {
-          autoAdvanceTimerRef.current = null;
-          setCurrentIndex((prev) =>
-            prev < questionsRef.current.length - 1 ? prev + 1 : prev,
-          );
-        }, 260);
-      }
-    },
-    [autoAdvance, viewMode],
-  );
+  const updateAnswer = useCallback((questionId: string, value: string) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: value }));
+  }, []);
 
   const toggleFlag = useCallback((questionId: string) => {
     setFlaggedIds((prev) => ({ ...prev, [questionId]: !prev[questionId] }));
@@ -532,10 +461,6 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
 
   const goToQuestion = useCallback(
     (index: number) => {
-      if (autoAdvanceTimerRef.current !== null) {
-        window.clearTimeout(autoAdvanceTimerRef.current);
-        autoAdvanceTimerRef.current = null;
-      }
       const clamped = Math.max(0, Math.min(questions.length - 1, index));
       setCurrentIndex(clamped);
       if (viewMode === 'all') {
@@ -549,116 +474,47 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
   );
 
   const goToFirstUnanswered = useCallback(() => {
-    const firstIdx = questions.findIndex(
-      (q) => !answers[q.id] || answers[q.id] === '',
-    );
+    const firstIdx = questions.findIndex((q) => !answers[q.id]?.trim());
     if (firstIdx === -1) return;
     setConfirmModal(null);
     goToQuestion(firstIdx);
   }, [questions, answers, goToQuestion]);
 
   const prevQuestion = useCallback(() => {
-    if (autoAdvanceTimerRef.current !== null) {
-      window.clearTimeout(autoAdvanceTimerRef.current);
-      autoAdvanceTimerRef.current = null;
-    }
     setCurrentIndex((prev) => Math.max(0, prev - 1));
   }, []);
 
   const nextQuestion = useCallback(() => {
-    if (autoAdvanceTimerRef.current !== null) {
-      window.clearTimeout(autoAdvanceTimerRef.current);
-      autoAdvanceTimerRef.current = null;
-    }
     setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1));
   }, [questions.length]);
 
-  // Keyboard shortcuts during single-question mode (Arrows, Enter, 1-6, A-D, F)
+  // IME-safe keyboard navigation (Ctrl+Enter next / Ctrl+Shift+Enter prev) — avoids browser Alt+Left Back clash
   useEffect(() => {
     if (phase !== 'taking' || confirmModal !== null || viewMode !== 'single') return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT')
-      ) {
-        return;
-      }
+      if (e.isComposing) return;
 
-      if (e.key === 'ArrowLeft') {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
-        prevQuestion();
-        return;
-      }
-      if (e.key === 'ArrowRight' || e.key === 'Enter') {
-        if (currentIndex < questions.length - 1) {
-          e.preventDefault();
+        if (e.shiftKey) {
+          prevQuestion();
+        } else if (currentIndex < questions.length - 1) {
           nextQuestion();
+        } else {
+          setConfirmModal('submit');
         }
-        return;
-      }
-      const currentQ = questions[currentIndex];
-      if (!currentQ) return;
-
-      if (e.key >= '1' && e.key <= '6') {
-        const optIdx = Number(e.key) - 1;
-        if (optIdx >= 0 && optIdx < currentQ.options.length) {
-          e.preventDefault();
-          selectAnswer(currentQ.id, currentQ.options[optIdx]);
-        }
-        return;
-      }
-
-      const lowerKey = e.key.toLowerCase();
-      if (lowerKey in LETTER_KEY_TO_INDEX) {
-        const optIdx = LETTER_KEY_TO_INDEX[lowerKey];
-        if (optIdx < currentQ.options.length) {
-          e.preventDefault();
-          selectAnswer(currentQ.id, currentQ.options[optIdx]);
-        }
-        return;
-      }
-
-      if (lowerKey === 'f') {
-        e.preventDefault();
-        toggleFlag(currentQ.id);
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [
-    phase,
-    confirmModal,
-    viewMode,
-    questions,
-    currentIndex,
-    selectAnswer,
-    toggleFlag,
-    prevQuestion,
-    nextQuestion,
-  ]);
+  }, [phase, confirmModal, viewMode, currentIndex, questions.length, prevQuestion, nextQuestion]);
 
-  const requestSubmit = useCallback(() => {
-    setConfirmModal('submit');
-  }, []);
-
-  const confirmSubmit = useCallback(() => {
-    finalizeExam();
-  }, [finalizeExam]);
-
-  const requestExit = useCallback(() => {
-    setConfirmModal('exit');
-  }, []);
+  const requestSubmit = useCallback(() => setConfirmModal('submit'), []);
+  const confirmSubmit = useCallback(() => finalizeExam(), [finalizeExam]);
+  const requestExit = useCallback(() => setConfirmModal('exit'), []);
 
   const confirmExit = useCallback(() => {
-    if (autoAdvanceTimerRef.current !== null) {
-      window.clearTimeout(autoAdvanceTimerRef.current);
-      autoAdvanceTimerRef.current = null;
-    }
     clearExamDraft(level);
     setSavedDraft(null);
     setConfirmModal(null);
@@ -695,7 +551,6 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
     phase,
     config,
     viewMode,
-    autoAdvance,
     activeExamLabel,
     questions,
     answers,
@@ -719,7 +574,6 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
     flaggedCount,
     updateConfig,
     setViewMode,
-    setAutoAdvance,
     setReviewFilter,
     closeConfirmModal,
     startRandomExam,
@@ -728,7 +582,7 @@ export function useExamSession(level: number, pool: readonly ExerciseItem[]) {
     resumeDraft,
     discardDraft,
     openHistoryAttempt,
-    selectAnswer,
+    updateAnswer,
     toggleFlag,
     goToQuestion,
     goToFirstUnanswered,

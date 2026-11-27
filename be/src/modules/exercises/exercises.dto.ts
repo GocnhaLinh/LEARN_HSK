@@ -10,8 +10,9 @@ export class CreateExerciseDto {
   @IsString()
   lessonId?: string;
 
-  @IsIn(['quiz', 'fill_blank', 'listen', 'translate'])
-  exerciseType: 'quiz' | 'fill_blank' | 'listen' | 'translate';
+  @IsOptional()
+  @IsIn(['translate', 'fill_blank', 'writing', 'listen', 'quiz'])
+  exerciseType?: 'translate' | 'fill_blank' | 'writing' | 'listen' | 'quiz';
 
   @IsString()
   @IsNotEmpty()
@@ -21,12 +22,13 @@ export class CreateExerciseDto {
   @IsNotEmpty()
   question: string;
 
+  @IsOptional()
   @IsArray()
-  options: string[];
+  options?: string[];
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  correctAnswer: string;
+  correctAnswer?: string;
 
   @IsOptional()
   @IsString()
@@ -37,10 +39,4 @@ export class CreateExerciseDto {
   @Min(5)
   @Max(100)
   xpReward?: number;
-}
-
-export class SubmitExerciseDto {
-  @IsString()
-  @IsNotEmpty()
-  answer: string;
 }
