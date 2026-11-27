@@ -27,6 +27,7 @@ export interface MediaStorageStatus {
 
 const MAX_AUDIO_BYTES = 95 * 1024 * 1024; // 95 MB (Cloudinary Free video/audio cap is 100 MB)
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB (Cloudinary Free image cap)
+const PING_CACHE_TTL_MS = 60_000; // Cache Cloudinary Admin ping 60s to preserve free-tier rate limits
 const ALLOWED_AUDIO_EXT = /\.(mp3|m4a|wav|ogg|aac|flac)$/i;
 const ALLOWED_IMAGE_EXT = /\.(png|jpe?g|webp|gif)$/i;
 
@@ -37,6 +38,7 @@ export class MediaService implements OnModuleInit {
   private readonly cloudinaryConfigured: boolean;
   private readonly cloudName?: string;
   private cloudinaryConnected = false;
+  private lastPingAt = 0;
   private lastError?: string;
 
   constructor(
@@ -125,17 +127,20 @@ export class MediaService implements OnModuleInit {
       const res = await cloudinary.api.ping();
       const ok = res?.status === 'ok';
       this.cloudinaryConnected = ok;
+      this.lastPingAt = Date.now();
       this.lastError = ok ? undefined : `Unexpected ping response: ${JSON.stringify(res)}`;
       return { connected: ok, error: this.lastError };
     } catch (err: any) {
       this.cloudinaryConnected = false;
+      this.lastPingAt = Date.now();
       this.lastError = err?.error?.message || err?.message || String(err);
       return { connected: false, error: this.lastError };
     }
   }
 
-  async getStatus(liveCheck = false): Promise<MediaStorageStatus> {
-    if (this.cloudinaryConfigured && liveCheck) {
+  async getStatus(liveCheck = false, forceRefresh = false): Promise<MediaStorageStatus> {
+    const pingStale = Date.now() - this.lastPingAt > PING_CACHE_TTL_MS;
+    if (this.cloudinaryConfigured && liveCheck && (forceRefresh || pingStale)) {
       await this.pingCloudinary();
     }
 
@@ -185,6 +190,7 @@ export class MediaService implements OnModuleInit {
         }
         resolve(result);
       });
+      stream.on('error', reject);
       Readable.from(buffer).pipe(stream);
     });
   }
@@ -246,6 +252,7 @@ export class MediaService implements OnModuleInit {
         kind: 'audio',
         storage: 'cloudinary',
         publicId: uploaded.public_id,
+        assetFolder: uploaded.asset_folder || targetFolder,
         url: uploaded.secure_url,
         resourceType: 'video',
         bytes: uploaded.bytes || optimized.optimizedBytes,
@@ -307,6 +314,7 @@ export class MediaService implements OnModuleInit {
         kind: 'image',
         storage: 'cloudinary',
         publicId: uploaded.public_id,
+        assetFolder: uploaded.asset_folder || targetFolder,
         url: uploaded.secure_url,
         resourceType: 'image',
         questionNumber: opts.questionNumber,
@@ -337,23 +345,76 @@ export class MediaService implements OnModuleInit {
     };
   }
 
-  async deleteAssets(assets: ExamMediaAsset[]): Promise<void> {
-    if (!Array.isArray(assets) || assets.length === 0) return;
+  async deleteAssets(
+    assets: ExamMediaAsset[],
+  ): Promise<{ deletedCount: number; failedCount: number }> {
+    if (!Array.isArray(assets) || assets.length === 0) {
+      return { deletedCount: 0, failedCount: 0 };
+    }
 
-    await Promise.allSettled(
+    let deletedCount = 0;
+    let failedCount = 0;
+    const foldersToPrune = new Set<string>();
+
+    await Promise.all(
       assets.map(async (asset) => {
         if (!asset?.publicId) return;
-        if (asset.storage === 'cloudinary' && this.cloudinaryConfigured) {
-          await cloudinary.uploader.destroy(asset.publicId, {
-            resource_type: asset.resourceType || (asset.kind === 'audio' ? 'video' : 'image'),
-            invalidate: true,
-          });
-        } else if (asset.storage === 'gridfs' && ObjectId.isValid(asset.publicId)) {
-          const bucket = this.getGridFsBucket();
-          await bucket.delete(new ObjectId(asset.publicId));
+        try {
+          if (asset.storage === 'cloudinary' && this.cloudinaryConfigured) {
+            const resourceType =
+              asset.resourceType || (asset.kind === 'audio' ? 'video' : 'image');
+            const res = await cloudinary.uploader.destroy(asset.publicId, {
+              resource_type: resourceType,
+              invalidate: true,
+            });
+            if (res?.result === 'ok' || res?.result === 'not found') {
+              deletedCount++;
+              this.logger.log(
+                `Deleted Cloudinary ${resourceType}: ${asset.publicId} (${res?.result})`,
+              );
+            } else {
+              failedCount++;
+              this.logger.warn(
+                `Cloudinary destroy returned "${res?.result}" for ${asset.publicId}`,
+              );
+            }
+
+            const folderPath =
+              asset.assetFolder ||
+              (asset.publicId.includes('/')
+                ? asset.publicId.slice(0, asset.publicId.lastIndexOf('/'))
+                : '');
+            // Only prune exam subfolders (e.g. HSK/HSK5/H50000), never the root folder
+            if (folderPath && folderPath !== this.folder && folderPath.startsWith(`${this.folder}/`)) {
+              foldersToPrune.add(folderPath);
+            }
+          } else if (asset.storage === 'gridfs' && ObjectId.isValid(asset.publicId)) {
+            const bucket = this.getGridFsBucket();
+            await bucket.delete(new ObjectId(asset.publicId));
+            deletedCount++;
+          }
+        } catch (err: any) {
+          failedCount++;
+          this.logger.warn(
+            `Failed to delete media asset "${asset.publicId}": ${err?.message || err}`,
+          );
         }
       }),
     );
+
+    // Prune now-empty exam subfolders on Cloudinary (Cloudinary safely rejects non-empty folders)
+    if (this.cloudinaryConfigured && foldersToPrune.size > 0) {
+      for (const folderPath of foldersToPrune) {
+        try {
+          await cloudinary.api.delete_folder(folderPath);
+          this.logger.log(`Pruned empty Cloudinary folder: ${folderPath}`);
+        } catch {
+          // Ignore if folder still contains files from another exam or was already removed
+        }
+      }
+    }
+
+    return { deletedCount, failedCount };
   }
 
   async streamGridFsFile(fileId: string, req: Request, res: Response): Promise<void> {

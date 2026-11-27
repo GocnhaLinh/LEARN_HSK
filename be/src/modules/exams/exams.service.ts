@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { HskCollectionsService } from '../../database/hsk-collections.service';
 import type { ExamMediaAsset, ExamSection } from '../../schemas/exam.schema';
+import { sanitizeExerciseOptions } from '../../schemas/schema-options';
 import { MediaService } from '../media/media.service';
 
 export interface ImportExamPayload {
@@ -70,30 +71,54 @@ export class ExamsService {
 
     const perLevel = await Promise.all(
       targets.map(async (lv) => {
+        // Omit heavy `sections` & internal `mediaAssets` (~95% less Atlas bandwidth)
         const docs = await lv.exams
           .find()
-          .select('-_id -__v -mediaAssets')
+          .select('-_id -__v -mediaAssets -sections')
           .sort({ createdAt: -1 })
           .lean()
           .exec();
 
-        return docs.map((doc: any) => {
-          const counts = countQuestions(doc.sections || []);
-          return {
-            id: doc.id,
-            code: doc.code,
-            level: doc.level,
-            title: doc.title,
-            description: doc.description || '',
-            totalQuestions: doc.totalQuestions || counts.total,
-            totalDurationMin: doc.totalDurationMin || 120,
-            audioUrl: doc.audioUrl,
-            audioStorage: doc.audioStorage,
-            audioDurationSec: doc.audioDurationSec,
-            sectionCounts: counts.bySection,
-            createdAt: doc.createdAt,
-          };
-        });
+        return Promise.all(
+          docs.map(async (doc: any) => {
+            let sectionCounts: Record<string, number> =
+              doc.sectionCounts && Object.keys(doc.sectionCounts).length > 0
+                ? doc.sectionCounts
+                : {};
+            let totalQuestions = doc.totalQuestions || 0;
+
+            // One-time lazy backfill for older exam documents saved before `sectionCounts` existed
+            if (Object.keys(sectionCounts).length === 0) {
+              const full = await lv.exams
+                .findOne({ id: doc.id })
+                .select('sections')
+                .lean()
+                .exec();
+              const counts = countQuestions((full?.sections as ExamSection[]) || []);
+              sectionCounts = counts.bySection;
+              totalQuestions = totalQuestions || counts.total;
+              await lv.exams
+                .updateOne({ id: doc.id }, { $set: { sectionCounts, totalQuestions } })
+                .exec()
+                .catch(() => {});
+            }
+
+            return {
+              id: doc.id,
+              code: doc.code,
+              level: doc.level,
+              title: doc.title,
+              description: doc.description || '',
+              totalQuestions,
+              totalDurationMin: doc.totalDurationMin || 120,
+              audioUrl: doc.audioUrl,
+              audioStorage: doc.audioStorage,
+              audioDurationSec: doc.audioDurationSec,
+              sectionCounts,
+              createdAt: doc.createdAt,
+            };
+          }),
+        );
       }),
     );
 
@@ -105,7 +130,9 @@ export class ExamsService {
     if (!found) {
       throw new NotFoundException(`Exam "${id}" not found`);
     }
-    return found.doc;
+    // Strip internal storage metadata (`mediaAssets`) before sending exam payload to client
+    const { mediaAssets: _internalAssets, ...publicExam } = found.doc;
+    return publicExam;
   }
 
   async importExam(
@@ -125,7 +152,7 @@ export class ExamsService {
       throw new BadRequestException('Đề thi phải có ít nhất 1 phần (sections).');
     }
 
-    const { total } = countQuestions(payload.sections);
+    const { total, bySection } = countQuestions(payload.sections);
     if (total <= 0) {
       throw new BadRequestException('Không tìm thấy câu hỏi nào trong đề thi.');
     }
@@ -136,28 +163,47 @@ export class ExamsService {
 
     try {
       const audioFile = files?.audio?.[0];
-      let audioAsset: ExamMediaAsset | undefined;
-      if (audioFile) {
-        audioAsset = await this.mediaService.uploadAudio(audioFile, {
-          level,
-          examCode: safeCode,
-        });
-        uploadedAssets.push(audioAsset);
-      }
-
       const imageFiles = files?.images || [];
-      const imageUrlByQuestion = new Map<number, string>();
+
+      // Upload audio and all images in parallel; use allSettled so any partial success rolls back cleanly
+      const uploadTasks: Array<Promise<{ kind: 'audio' | 'image'; asset: ExamMediaAsset; qNum?: number }>> = [];
+      if (audioFile) {
+        uploadTasks.push(
+          this.mediaService
+            .uploadAudio(audioFile, { level, examCode: safeCode })
+            .then((asset) => ({ kind: 'audio' as const, asset })),
+        );
+      }
       for (const imgFile of imageFiles) {
         const qNum = extractQuestionNumberFromFilename(imgFile.originalname);
-        const imgAsset = await this.mediaService.uploadImage(imgFile, {
-          level,
-          examCode: safeCode,
-          questionNumber: qNum,
-        });
-        uploadedAssets.push(imgAsset);
-        if (qNum !== undefined) {
-          imageUrlByQuestion.set(qNum, imgAsset.url);
+        uploadTasks.push(
+          this.mediaService
+            .uploadImage(imgFile, { level, examCode: safeCode, questionNumber: qNum })
+            .then((asset) => ({ kind: 'image' as const, asset, qNum })),
+        );
+      }
+
+      const settled = await Promise.allSettled(uploadTasks);
+      let audioAsset: ExamMediaAsset | undefined;
+      const imageUrlByQuestion = new Map<number, string>();
+      let firstError: unknown = null;
+
+      for (const item of settled) {
+        if (item.status === 'fulfilled') {
+          const { kind, asset, qNum } = item.value;
+          uploadedAssets.push(asset);
+          if (kind === 'audio') {
+            audioAsset = asset;
+          } else if (qNum !== undefined) {
+            imageUrlByQuestion.set(qNum, asset.url);
+          }
+        } else if (!firstError) {
+          firstError = item.reason;
         }
+      }
+
+      if (firstError) {
+        throw firstError;
       }
 
       // Attach uploaded image URLs to matching question numbers (e.g. q100.png -> question 100)
@@ -169,14 +215,12 @@ export class ExamsService {
             ...group,
             questions: (group.questions || []).map((q) => {
               const matchedImg = imageUrlByQuestion.get(q.number);
-              const cleanOpts = Array.isArray(q.options)
-                ? q.options.map((o) => String(o).trim()).filter(Boolean)
-                : [];
+              const cleanOpts = sanitizeExerciseOptions(q.options);
               const nextQ: any = {
                 ...q,
                 correctAnswer: String(q.correctAnswer || '').trim(),
               };
-              if (cleanOpts.length >= 2) {
+              if (cleanOpts) {
                 nextQ.options = cleanOpts;
               } else {
                 delete nextQ.options;
@@ -198,6 +242,7 @@ export class ExamsService {
         title,
         description: String(payload.description || '').trim(),
         totalQuestions: total,
+        sectionCounts: bySection,
         totalDurationMin: Number(payload.totalDurationMin) || 120,
         ...(audioAsset
           ? {
@@ -210,7 +255,8 @@ export class ExamsService {
         sections,
       });
 
-      return created.toObject();
+      const { mediaAssets: _internalAssets, ...publicExam } = created.toObject();
+      return publicExam;
     } catch (err) {
       // Roll back uploaded Cloudinary/GridFS assets so failed imports never leak storage
       if (uploadedAssets.length > 0) {
@@ -231,10 +277,16 @@ export class ExamsService {
       : [];
 
     await found.models.exams.deleteOne({ id }).exec();
-    if (assets.length > 0) {
-      await this.mediaService.deleteAssets(assets);
-    }
+    const mediaResult =
+      assets.length > 0
+        ? await this.mediaService.deleteAssets(assets)
+        : { deletedCount: 0, failedCount: 0 };
 
-    return { deleted: true, id, deletedAssets: assets.length };
+    return {
+      deleted: true,
+      id,
+      deletedAssets: mediaResult.deletedCount,
+      failedAssets: mediaResult.failedCount,
+    };
   }
 }

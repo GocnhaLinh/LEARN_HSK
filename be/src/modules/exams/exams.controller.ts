@@ -40,8 +40,8 @@ export class ExamsController {
   ) {}
 
   @Get('media/status')
-  getMediaStatus() {
-    return this.mediaService.getStatus(true);
+  getMediaStatus(@Query('refresh') refresh?: string) {
+    return this.mediaService.getStatus(true, refresh === '1');
   }
 
   @Get('media/gridfs/:fileId')

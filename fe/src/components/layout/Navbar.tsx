@@ -1,7 +1,8 @@
-import { Disc3, Flame, Sparkles } from 'lucide-react';
+import { Disc3, Flame, Loader2, Sparkles } from 'lucide-react';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
+import { useExamImporterStore } from '@/features/exams/stores/exam-importer.store';
 import { preloadRoute } from '@/routes/lazyPages';
 
 const NAV_ITEMS = [
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
 export const Navbar: React.FC = () => {
   const { profile, toggleTheme, showToast } = useApp();
   const { pathname } = useLocation();
+  const isUploading = useExamImporterStore((s) => s.busyStage !== 'idle');
   const [cdPlaying, setCdPlaying] = useState(false);
 
   const navRef = useRef<HTMLElement | null>(null);
@@ -119,7 +121,13 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           <Link
             to="/"
-            className="flex items-center gap-1.5 text-left shrink-0 whitespace-nowrap hover:opacity-85 transition"
+            onClick={(e) => {
+              if (isUploading) e.preventDefault();
+            }}
+            aria-disabled={isUploading}
+            className={`flex items-center gap-1.5 text-left shrink-0 whitespace-nowrap transition ${
+              isUploading ? 'opacity-55 cursor-not-allowed' : 'hover:opacity-85'
+            }`}
           >
             <span className="font-serif italic font-bold text-base sm:text-lg tracking-tight">
               HSK <span className="not-italic">(QUEST)</span>{' '}
@@ -167,12 +175,21 @@ export const Navbar: React.FC = () => {
               }}
               to={item.to}
               end={item.end}
-              onMouseEnter={() => preloadRoute(item.to)}
-              onFocus={() => preloadRoute(item.to)}
+              aria-disabled={isUploading}
+              title={isUploading ? 'Đang tải đề lên, tạm khóa chuyển trang...' : undefined}
+              onClick={(e) => {
+                if (isUploading) e.preventDefault();
+              }}
+              onMouseEnter={() => {
+                if (!isUploading) preloadRoute(item.to);
+              }}
+              onFocus={() => {
+                if (!isUploading) preloadRoute(item.to);
+              }}
               className={({ isActive }) =>
                 `nav-tab-btn relative z-10 px-2.5 py-1.5 border transition-colors duration-200 whitespace-nowrap shrink-0 inline-flex items-center gap-1 ${
                   isActive ? 'is-active' : ''
-                }`
+                } ${isUploading ? 'opacity-45 cursor-not-allowed' : ''}`
               }
             >
               <span className="hidden 2xl:inline opacity-75">{item.num}</span>
@@ -182,6 +199,12 @@ export const Navbar: React.FC = () => {
         </nav>
 
         <div className="flex items-center gap-2 shrink-0">
+          {isUploading && (
+            <span className="px-2 py-1 rounded bg-[#EFE078] text-[#111111] border border-[#111111] font-mono text-[10px] font-bold inline-flex items-center gap-1 whitespace-nowrap">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Đang tải lên...
+            </span>
+          )}
           <button
             type="button"
             onClick={toggleTheme}
