@@ -3,9 +3,7 @@ import type {
   ExerciseItem,
   HandwritingItem,
   Lesson,
-  LevelScoreSummary,
   MindNote,
-  ScoreHistoryItem,
   ThemeMode,
   UserProfile,
   VocabWord,
@@ -23,10 +21,6 @@ export interface BootstrapResponse {
   lessons: Lesson[];
   vocab: VocabWord[];
   exercises: ExerciseItem[];
-  scores: {
-    byLevel: LevelScoreSummary[];
-    history: ScoreHistoryItem[];
-  };
   notes: MindNote[];
   handwriting: HandwritingItem[];
 }

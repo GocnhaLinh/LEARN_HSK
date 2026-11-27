@@ -114,30 +114,3 @@ export interface ExerciseItem {
   completed?: boolean;
 }
 
-export interface LevelScoreSummary {
-  level: number;
-  code: string;
-  title: string;
-  emoji: string;
-  xpEarned: number;
-  totalScore: number;
-  highScore: number;
-  bestCombo: number;
-  gamesPlayed: number;
-  totalWords: number;
-  masteredWords: number;
-  totalExercises: number;
-  completedExercises: number;
-}
-
-export interface ScoreHistoryItem {
-  id: string;
-  level: number;
-  mode: 'quiz' | 'listen' | 'match' | 'exercise' | 'writing';
-  score: number;
-  combo: number;
-  xpEarned: number;
-  detail: string;
-  playedAt: string;
-}
-

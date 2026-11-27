@@ -11,7 +11,6 @@ import { HealthModule } from './modules/health/health.module';
 import { LessonsModule } from './modules/lessons/lessons.module';
 import { NotesModule } from './modules/notes/notes.module';
 import { ProfileModule } from './modules/profile/profile.module';
-import { ScoresModule } from './modules/scores/scores.module';
 import { SeedModule } from './modules/seed/seed.module';
 import { VocabModule } from './modules/vocab/vocab.module';
 
@@ -40,7 +39,6 @@ import { VocabModule } from './modules/vocab/vocab.module';
     LessonsModule,
     VocabModule,
     ExercisesModule,
-    ScoresModule,
     NotesModule,
     HandwritingModule,
     BackupModule,

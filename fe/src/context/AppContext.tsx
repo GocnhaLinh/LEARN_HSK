@@ -21,10 +21,8 @@ import {
   ExtractedVocabRow,
   HandwritingItem,
   Lesson,
-  LevelScoreSummary,
   MindNote,
   MissionsDone,
-  ScoreHistoryItem,
   ThemeMode,
   ToastVariant,
   UserProfile,
@@ -59,8 +57,6 @@ interface AppContextValue {
   lessons: Lesson[];
   vocab: VocabWord[];
   exercises: ExerciseItem[];
-  scoreSummaries: LevelScoreSummary[];
-  scoreHistory: ScoreHistoryItem[];
   syncProfile: (
     next: Partial<UserProfile> | ((prev: UserProfile) => UserProfile),
   ) => void;
@@ -170,8 +166,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [exercises, setExercises] = useState<ExerciseItem[]>(() =>
     Array.isArray(cached?.exercises) ? cached.exercises : [],
   );
-  const [scoreSummaries, setScoreSummaries] = useState<LevelScoreSummary[]>([]);
-  const [scoreHistory, setScoreHistory] = useState<ScoreHistoryItem[]>([]);
   const [apiConnected, setApiConnected] = useState<boolean>(false);
 
   const syncProfile = useCallback(
@@ -248,7 +242,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       lessons: any;
       vocab: any;
       exercises: any;
-      scores: any;
       notes: any;
       handwriting: any;
     }) => {
@@ -273,8 +266,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       if (Array.isArray(data.lessons)) setLessons(data.lessons);
       if (Array.isArray(data.vocab)) setVocab(data.vocab);
       if (Array.isArray(data.exercises)) setExercises(data.exercises);
-      if (data.scores?.byLevel) setScoreSummaries(data.scores.byLevel);
-      if (data.scores?.history) setScoreHistory(data.scores.history);
       if (Array.isArray(data.notes)) {
         queryClient.setQueryData<MindNote[]>(notesKeys.list, data.notes);
       }
@@ -303,13 +294,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           api.getLessons(),
           api.getVocab(),
           api.getExercises(),
-          api.getScores(),
           api.getNotes(),
           api.getHandwriting(),
         ]);
         if (!active) return;
 
-        const [pRes, lRes, vRes, exRes, scRes, nRes, hwRes] = results;
+        const [pRes, lRes, vRes, exRes, nRes, hwRes] = results;
         const anySuccess = results.some((r) => r.status === "fulfilled");
         if (!anySuccess) {
           setApiConnected(false);
@@ -321,7 +311,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           lessons: lRes.status === "fulfilled" ? lRes.value : undefined,
           vocab: vRes.status === "fulfilled" ? vRes.value : undefined,
           exercises: exRes.status === "fulfilled" ? exRes.value : undefined,
-          scores: scRes.status === "fulfilled" ? scRes.value : undefined,
           notes: nRes.status === "fulfilled" ? nRes.value : undefined,
           handwriting: hwRes.status === "fulfilled" ? hwRes.value : undefined,
         });
@@ -687,16 +676,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [showToast],
   );
 
-  const refreshScores = useCallback(async () => {
-    try {
-      const sc = await api.getScores();
-      if (sc?.byLevel) setScoreSummaries(sc.byLevel);
-      if (sc?.history) setScoreHistory(sc.history);
-    } catch {
-      // ignore offline
-    }
-  }, []);
-
   const bulkImportWords = useCallback(
     async ({
       level,
@@ -740,7 +719,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           createdExerciseCount = res.exercises.length;
         }
         if (res.profile) setProfile((prev) => ({ ...prev, ...res.profile }));
-        await refreshScores();
         setApiConnected(true);
       } catch {
         const newLessons: Lesson[] = [];
@@ -791,7 +769,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         `Đã chèn ${picked.length} từ (${totalChunks} bài)${exSuffix} vào HSK ${level}`,
       );
     },
-    [triggerXpEffects, refreshScores],
+    [triggerXpEffects],
   );
 
   const recordGameWin = useCallback(
@@ -799,7 +777,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       xpAmount: number,
       label: string,
       ev?: ClickCoords,
-      meta?: {
+      _meta?: {
         level?: number;
         mode?: "quiz" | "listen" | "match";
         score?: number;
@@ -823,37 +801,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         };
       });
       triggerXpEffects(xpAmount, label, ev);
-
-      // Keep game score/history strictly local in memory — do NOT POST to `scores` collection
-      if (meta) {
-        const entry: ScoreHistoryItem = {
-          id: `local_sc_${Date.now()}`,
-          level: meta.level ?? 0,
-          mode: meta.mode ?? "quiz",
-          score: meta.score ?? xpAmount,
-          combo: meta.combo ?? 1,
-          xpEarned: xpAmount,
-          detail: label,
-          playedAt: new Date().toISOString(),
-        };
-        setScoreHistory((prev) => [entry, ...prev].slice(0, 30));
-        if (meta.level && meta.level >= 1 && meta.level <= 6) {
-          setScoreSummaries((prev) =>
-            prev.map((s) =>
-              s.level === meta.level
-                ? {
-                    ...s,
-                    xpEarned: s.xpEarned + xpAmount,
-                    totalScore: s.totalScore + (meta.score ?? xpAmount),
-                    highScore: Math.max(s.highScore, meta.score ?? xpAmount),
-                    bestCombo: Math.max(s.bestCombo, meta.combo ?? 1),
-                    gamesPlayed: s.gamesPlayed + 1,
-                  }
-                : s,
-            ),
-          );
-        }
-      }
 
       try {
         const updated = await api.recordReview(xpAmount, true);
@@ -945,7 +892,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         submittingExIdsRef.current.delete(id);
       }
     },
-    [refreshScores, showToast, triggerXpEffects],
+    [showToast, triggerXpEffects],
   );
 
   const exportDataJSON = useCallback(async () => {
@@ -1023,8 +970,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       lessons,
       vocab,
       exercises,
-      scoreSummaries,
-      scoreHistory,
       syncProfile,
       apiConnected,
       showToast,
@@ -1052,8 +997,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       lessons,
       vocab,
       exercises,
-      scoreSummaries,
-      scoreHistory,
       syncProfile,
       apiConnected,
       showToast,

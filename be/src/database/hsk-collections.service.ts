@@ -47,7 +47,7 @@ export class HskCollectionsService implements OnModuleInit {
     console.log('======================================================================');
     console.log('✅ You successfully connected to MongoDB Atlas!');
     console.log(`📦 Database   : ${dbName} (${host})`);
-    console.log('📚 Collections: HSK1, HSK2, HSK3, HSK4, HSK5, HSK6, profiles, scores, notes, handwriting');
+    console.log('📚 Collections: HSK1, HSK2, HSK3, HSK4, HSK5, HSK6, profiles, notes, handwriting');
     console.log('======================================================================');
     console.log('');
   }
