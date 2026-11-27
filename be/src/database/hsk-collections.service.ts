@@ -1,12 +1,13 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
+import { Exam, ExamSchema } from '../schemas/exam.schema';
 import { Exercise, ExerciseSchema } from '../schemas/exercise.schema';
 import { Lesson, LessonSchema } from '../schemas/lesson.schema';
 import { Vocab, VocabSchema } from '../schemas/vocab.schema';
 
 export const HSK_LEVELS = [1, 2, 3, 4, 5, 6] as const;
-export const HSK_LEVEL_COLLECTIONS = ['lessons', 'vocab', 'exercises'] as const;
+export const HSK_LEVEL_COLLECTIONS = ['lessons', 'vocab', 'exercises', 'exams'] as const;
 export const APP_COLLECTIONS = ['profiles', 'notes', 'handwriting'] as const;
 
 export type HskCollectionKey = (typeof HSK_LEVEL_COLLECTIONS)[number];
@@ -17,6 +18,7 @@ export interface HskLevelModels {
   lessons: Model<Lesson>;
   vocab: Model<Vocab>;
   exercises: Model<Exercise>;
+  exams: Model<Exam>;
 }
 
 const LEVEL_ID_HINT_REGEX = /(?:^|_)h(?:sk)?([1-6])(?=[_-])/i;
@@ -53,8 +55,11 @@ export class HskCollectionsService implements OnModuleInit {
       const exercises =
         (levelConn.models.Exercise as Model<Exercise> | undefined) ||
         levelConn.model<Exercise>('Exercise', ExerciseSchema, 'exercises');
+      const exams =
+        (levelConn.models.Exam as Model<Exam> | undefined) ||
+        levelConn.model<Exam>('Exam', ExamSchema, 'exams');
 
-      this.levels.set(lv, { level: lv, dbName, lessons, vocab, exercises });
+      this.levels.set(lv, { level: lv, dbName, lessons, vocab, exercises, exams });
     }
 
     this.connection.on('connected', () => {
@@ -140,6 +145,7 @@ export class HskCollectionsService implements OnModuleInit {
           await models.lessons.createIndexes().catch(() => {});
           await models.vocab.createIndexes().catch(() => {});
           await models.exercises.createIndexes().catch(() => {});
+          await models.exams.createIndexes().catch(() => {});
         }
 
         this.initializedStructure = true;
@@ -210,5 +216,9 @@ export class HskCollectionsService implements OnModuleInit {
 
   findExerciseById(id: string) {
     return this.findAcrossLevels('exercises', id);
+  }
+
+  findExamById(id: string) {
+    return this.findAcrossLevels('exams', id);
   }
 }
