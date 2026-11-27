@@ -4,7 +4,6 @@ import { Model } from 'mongoose';
 import { HskCollectionsService } from '../../database/hsk-collections.service';
 import { Handwriting, HandwritingDocument } from '../../schemas/handwriting.schema';
 import { Note, NoteDocument } from '../../schemas/note.schema';
-import { ScoreRecord, ScoreRecordDocument } from '../../schemas/score.schema';
 import { ProfileService } from '../profile/profile.service';
 import { ImportBackupDto } from './backup.dto';
 
@@ -14,13 +13,12 @@ export class BackupService {
     private readonly hskCollections: HskCollectionsService,
     @InjectModel(Note.name) private readonly noteModel: Model<NoteDocument>,
     @InjectModel(Handwriting.name) private readonly handwritingModel: Model<HandwritingDocument>,
-    @InjectModel(ScoreRecord.name) private readonly scoreModel: Model<ScoreRecordDocument>,
     private readonly profileService: ProfileService,
   ) {}
 
   async exportData() {
     const allModels = this.hskCollections.getAllModels();
-    const [profile, perLevelLessons, perLevelVocab, perLevelExercises, notes, handwriting, scores] =
+    const [profile, perLevelLessons, perLevelVocab, perLevelExercises, notes, handwriting] =
       await Promise.all([
         this.profileService.getOrCreate(),
         Promise.all(
@@ -40,7 +38,6 @@ export class BackupService {
         ),
         this.noteModel.find().sort({ createdAt: -1 }).lean().exec(),
         this.handwritingModel.find().sort({ createdAt: -1 }).lean().exec(),
-        this.scoreModel.find().sort({ createdAt: -1 }).lean().exec(),
       ]);
 
     return {
@@ -54,7 +51,6 @@ export class BackupService {
       exercises: perLevelExercises.flat(),
       notes,
       handwriting,
-      scores,
     };
   }
 

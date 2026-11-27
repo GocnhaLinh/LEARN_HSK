@@ -1,4 +1,4 @@
-import { Headphones, LayoutGrid, Trophy, Volume2, Zap } from 'lucide-react';
+import { Headphones, LayoutGrid, Volume2, Zap } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
@@ -10,7 +10,7 @@ type GameMode = 'quiz' | 'listen' | 'match';
 export const GamePage: React.FC = () => {
   const { mode: modeParam } = useParams();
   const navigate = useNavigate();
-  const { vocab, scoreSummaries, scoreHistory, recordGameWin, showToast } = useApp();
+  const { vocab, recordGameWin, showToast } = useApp();
 
   const gameMode: GameMode =
     modeParam === 'listen' || modeParam === 'match' ? modeParam : 'quiz';
@@ -383,68 +383,6 @@ export const GamePage: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* BẢNG ĐIỂM THI ĐUA HSK 1–6 (SYNC MONGODB) */}
-      {scoreSummaries.length > 0 && (
-        <div className="t-card p-5 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Trophy className="w-5 h-5" />
-              <h3 className="font-serif font-bold text-xl">Bảng điểm thi đua theo cấp HSK</h3>
-            </div>
-            <span className="px-2.5 py-0.5 bg-[#EFE078] text-[#111111] font-mono text-[10px] font-bold t-badge">
-              MONGODB LEADERBOARD
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-            {scoreSummaries.map((s) => (
-              <div
-                key={s.level}
-                className="p-3 rounded-xl bg-[#F8F6F1] border-[1.5px] border-[#141414] space-y-1 font-mono text-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold">{s.code}</span>
-                  <span>{s.emoji}</span>
-                </div>
-                <div className="font-serif text-xl font-extrabold">{s.totalScore} đ</div>
-                <div className="text-[10px] opacity-75">
-                  Max: {s.highScore} • {s.bestCombo}x
-                </div>
-                <div className="text-[10px] opacity-65">
-                  BT: {s.completedExercises}/{s.totalExercises}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {scoreHistory.length > 0 && (
-            <div className="pt-3 border-t border-dashed border-current/20 space-y-1.5">
-              <p className="font-mono text-[11px] font-bold uppercase opacity-65">
-                Lịch sử thi đua gần nhất
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                {scoreHistory.slice(0, 6).map((h) => (
-                  <div
-                    key={h.id}
-                    className="px-3 py-2 rounded-lg bg-white border border-[#141414]/30 flex items-center justify-between gap-2 text-xs"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-bold truncate">{h.detail || `HSK ${h.level}`}</div>
-                      <div className="font-mono text-[10px] opacity-60">
-                        HSK {h.level} • {h.mode.toUpperCase()} • Combo {h.combo}x
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 bg-[#CBEAD8] text-[#111111] font-mono text-[11px] font-bold t-badge shrink-0">
-                      +{h.xpEarned} XP
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </section>
   );
 };

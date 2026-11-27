@@ -1,6 +1,6 @@
 import {
   ArrowLeft,
-  CheckCircle2,
+  ArrowRight,
   ChevronDown,
   ChevronUp,
   ClipboardCheck,
@@ -8,33 +8,31 @@ import {
   Layers,
   Loader2,
   PenTool,
+  RotateCcw,
   Search,
+  ShieldCheck,
   Sparkles,
   Trophy,
   Volume2,
 } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Badge, Button, Card } from '@/components/ui';
 import { useApp } from '@/context/AppContext';
 import { COURSES_META } from '@/data/defaults';
+import { getLocalCourseExamStats } from '@/features/exercises/utils/exam-utils';
 import { useWritingStore } from '@/features/writing/stores/writing.store';
 import { useScrollPast } from '@/hooks/useScrollPast';
-import { ExtractedExerciseRow, ExtractedVocabRow, VocabWord } from '@/types';
-import { parseCourseFile } from '@/utils/docParser';
 import { normalizeSearch } from '@/lib/search-utils';
 import { speakChinese } from '@/lib/speech-utils';
+import { ExercisesPage } from '@/routes/lazyPages';
+import { ExtractedExerciseRow, ExtractedVocabRow, VocabWord } from '@/types';
+import { parseCourseFile } from '@/utils/docParser';
 
 export const CourseDetailPage: React.FC = () => {
   const { level: levelParam } = useParams();
   const navigate = useNavigate();
-  const {
-    lessons,
-    vocab,
-    exercises,
-    bulkImportWords,
-    submitCourseExercise,
-    showToast,
-  } = useApp();
+  const { lessons, vocab, exercises, bulkImportWords, showToast } = useApp();
   const setWriteQuickPool = useWritingStore((s) => s.setWriteQuickPool);
 
   const level = Math.min(6, Math.max(1, Number(levelParam) || 5));
@@ -43,22 +41,7 @@ export const CourseDetailPage: React.FC = () => {
     () => exercises.filter((ex) => ex.level === level),
     [exercises, level],
   );
-  const completedExercisesCount = useMemo(
-    () => courseExercises.filter((ex) => ex.completed).length,
-    [courseExercises],
-  );
-  const exercisePoints = useMemo(
-    () =>
-      courseExercises.reduce(
-        (sum, ex) => sum + (ex.completed ? ex.xpReward || 20 : 0),
-        0,
-      ),
-    [courseExercises],
-  );
-  const [exFeedback, setExFeedback] = useState<
-    Record<string, { picked: string; correct: boolean; explanation: string }>
-  >({});
-  const [submittingEx, setSubmittingEx] = useState<Record<string, boolean>>({});
+  const localExamStats = useMemo(() => getLocalCourseExamStats(level), [level]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewCardRef = useRef<HTMLDivElement | null>(null);
@@ -447,110 +430,62 @@ export const CourseDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* COURSE EXERCISES & ĐIỂM THI ĐUA (MONGO COLLECTION HSK{level}) */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <ClipboardCheck className="w-5 h-5" />
-            <h3 className="font-serif font-bold text-2xl">Bài tập &amp; Điểm thi đua {meta.code}</h3>
+      {/* MOCK EXAM & EXERCISES STUDIO LAUNCHER */}
+      <Card padding="lg" className="space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="w-5 h-5" />
+                <h3 className="font-serif font-bold text-2xl">
+                  Phòng Thi thử &amp; Bài tập {meta.code}
+                </h3>
+              </div>
+              <Badge variant="yellow" size="xs">
+                {courseExercises.length} câu hỏi
+              </Badge>
+              <Badge variant="mint" size="xs">
+                <ShieldCheck className="w-3 h-3" />
+                Chấm điểm cục bộ
+              </Badge>
+            </div>
+            <p className="text-xs sm:text-sm opacity-75 max-w-2xl leading-relaxed">
+              {courseExercises.length > 0
+                ? `Rút đề ngẫu nhiên (10 / 20 / 30 / 50 câu hoặc toàn bộ ${courseExercises.length} câu) theo bài học & dạng bài. Khi vào bài thi sẽ ẩn thanh điều hướng để tập trung tối đa và chỉ chấm điểm sau khi bấm Nộp bài.`
+                : `Chưa có bài tập nào trong ${meta.code}. Hãy tải giáo trình (.PDF / .DOCX / .TXT) để tự động sinh ngân hàng câu hỏi.`}
+            </p>
+            {(localExamStats.attemptCount > 0 || localExamStats.wrongCount > 0) && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                {localExamStats.bestScore10 !== null && (
+                  <Badge variant="yellow" size="xs">
+                    <Trophy className="w-3 h-3" />
+                    Cao nhất: {localExamStats.bestScore10.toFixed(1)}/10 ({localExamStats.attemptCount} lượt)
+                  </Badge>
+                )}
+                {localExamStats.wrongCount > 0 && (
+                  <Badge variant="pink" size="xs">
+                    <RotateCcw className="w-3 h-3" />
+                    {localExamStats.wrongCount} câu hay sai cần ôn
+                  </Badge>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] font-bold">
-            <span className="px-2.5 py-1 bg-[#EFE078] text-[#111111] t-badge flex items-center gap-1">
-              <Trophy className="w-3.5 h-3.5" />
-              Điểm bài tập: {exercisePoints} XP
-            </span>
-            <span className="px-2.5 py-1 bg-[#CBEAD8] text-[#111111] t-badge">
-              Bài tập: {completedExercisesCount}/{courseExercises.length}
-            </span>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Button
+              variant="primary"
+              size="lg"
+              disabled={courseExercises.length === 0}
+              onMouseEnter={() => void ExercisesPage.preload()}
+              rightIcon={<ArrowRight className="w-4 h-4 text-[#EFE078]" />}
+              onClick={() => navigate(`/courses/${level}/exercises`)}
+            >
+              Vào phòng Thi thử ({courseExercises.length} câu)
+            </Button>
           </div>
         </div>
-
-        {courseExercises.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {courseExercises.slice(0, 20).map((ex, idx) => {
-              const fb = exFeedback[ex.id];
-              return (
-                <div key={ex.id} className="t-card p-5 space-y-3 flex flex-col justify-between">
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="px-2 py-0.5 bg-[#111111] text-[#EFE078] font-mono text-[10px] font-bold rounded-[4px]">
-                        BÀI TẬP #{idx + 1} • +{ex.xpReward} XP
-                      </span>
-                      {ex.completed && (
-                        <span className="px-2 py-0.5 bg-[#CBEAD8] text-[#111111] font-mono text-[10px] font-bold t-badge flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Đã hoàn thành
-                        </span>
-                      )}
-                    </div>
-                    <h4 className="font-serif font-bold text-lg">{ex.title}</h4>
-                    <p className="text-sm font-medium leading-relaxed">{ex.question}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                      {ex.options.map((opt) => {
-                        const isDone = Boolean(ex.completed || fb?.correct);
-                        const isBusy = Boolean(submittingEx[ex.id]);
-                        const isCorrectOpt =
-                          isDone && opt.trim() === String(ex.correctAnswer || '').trim();
-                        const isPicked = fb?.picked === opt;
-                        const btnBg = isCorrectOpt
-                          ? 'bg-[#CBEAD8] ring-2 ring-[#141414]'
-                          : isPicked
-                            ? fb.correct
-                              ? 'bg-[#CBEAD8]'
-                              : 'bg-[#F4C2D7]'
-                            : isDone
-                              ? 'bg-[#F8F6F1] opacity-55'
-                              : 'bg-[#F8F6F1] hover:bg-[#EFE078]/60';
-                        return (
-                          <button
-                            key={opt}
-                            type="button"
-                            disabled={isDone || isBusy}
-                            onClick={async (e) => {
-                              if (isDone || isBusy) return;
-                              setSubmittingEx((prev) => ({ ...prev, [ex.id]: true }));
-                              try {
-                                const res = await submitCourseExercise(ex.id, opt, {
-                                  clientX: e.clientX,
-                                  clientY: e.clientY,
-                                });
-                                setExFeedback((prev) => ({
-                                  ...prev,
-                                  [ex.id]: {
-                                    picked: opt,
-                                    correct: res.correct,
-                                    explanation: res.explanation,
-                                  },
-                                }));
-                              } finally {
-                                setSubmittingEx((prev) => ({ ...prev, [ex.id]: false }));
-                              }
-                            }}
-                            className={`t-btn px-3 py-2 flex items-center justify-center text-center text-xs font-semibold text-[#111111] disabled:cursor-default disabled:transform-none ${btnBg}`}
-                          >
-                            {opt}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  {fb && (
-                    <div
-                      className={`p-2.5 rounded-lg border border-[#141414] text-xs ${
-                        fb.correct ? 'bg-[#CBEAD8]/60' : 'bg-[#F4C2D7]/60'
-                      }`}
-                    >
-                      <span className="font-mono font-bold mr-1">
-                        {fb.correct ? '✓ Chính xác!' : '✗ Chưa đúng.'}
-                      </span>
-                      <span>{fb.explanation}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      </Card>
 
       {/* LESSONS LIST INSIDE COURSE */}
       <div className="space-y-4">

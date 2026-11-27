@@ -5,7 +5,6 @@ import { HSK_LEVELS, HskCollectionsService } from '../../database/hsk-collection
 import { Handwriting, HandwritingDocument } from '../../schemas/handwriting.schema';
 import { Note, NoteDocument } from '../../schemas/note.schema';
 import { Profile, ProfileDocument } from '../../schemas/profile.schema';
-import { ScoreRecord, ScoreRecordDocument } from '../../schemas/score.schema';
 
 @Injectable()
 export class SeedService implements OnModuleInit {
@@ -17,7 +16,6 @@ export class SeedService implements OnModuleInit {
     @InjectModel(Profile.name) private readonly profileModel: Model<ProfileDocument>,
     @InjectModel(Note.name) private readonly noteModel: Model<NoteDocument>,
     @InjectModel(Handwriting.name) private readonly handwritingModel: Model<HandwritingDocument>,
-    @InjectModel(ScoreRecord.name) private readonly scoreModel: Model<ScoreRecordDocument>,
   ) {}
 
   async onModuleInit() {
@@ -40,7 +38,6 @@ export class SeedService implements OnModuleInit {
     const requiredCollections = [
       ...HSK_LEVELS.map((lv) => `HSK${lv}`),
       'profiles',
-      'scores',
       'notes',
       'handwriting',
     ];
@@ -58,7 +55,6 @@ export class SeedService implements OnModuleInit {
       this.profileModel.deleteMany({}).exec(),
       this.noteModel.deleteMany({}).exec(),
       this.handwritingModel.deleteMany({}).exec(),
-      this.scoreModel.deleteMany({}).exec(),
     ]);
     await this.ensureEmptyCollections();
     return {

@@ -5,6 +5,7 @@ import { AppProvider } from '@/context/AppContext';
 import {
   CourseDetailPage,
   CoursesPage,
+  ExercisesPage,
   FlashcardPage,
   GamePage,
   HomePage,
@@ -22,9 +23,10 @@ export const App: React.FC = () => {
             {/* Module 01: Trang chủ */}
             <Route path="/" element={<HomePage />} />
 
-            {/* Module 02: Khóa học HSK 1-6 + Smart Importer */}
+            {/* Module 02: Khóa học HSK 1-6 + Smart Importer + Phòng thi thử */}
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/courses/:level" element={<CourseDetailPage />} />
+            <Route path="/courses/:level/exercises" element={<ExercisesPage />} />
 
             {/* Module 03: Flashcard Digicam & Flip-TTS */}
             <Route path="/flashcard" element={<FlashcardPage />} />

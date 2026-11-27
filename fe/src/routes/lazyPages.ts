@@ -9,6 +9,10 @@ export const CourseDetailPage = lazyNamed(
   () => import('../pages/CourseDetailPage'),
   'CourseDetailPage',
 );
+export const ExercisesPage = lazyNamed(
+  () => import('../pages/ExercisesPage'),
+  'ExercisesPage',
+);
 export const FlashcardPage = lazyNamed(() => import('../pages/FlashcardPage'), 'FlashcardPage');
 export const WritingPage = lazyNamed(() => import('../pages/WritingPage'), 'WritingPage');
 export const GamePage = lazyNamed(() => import('../pages/GamePage'), 'GamePage');
