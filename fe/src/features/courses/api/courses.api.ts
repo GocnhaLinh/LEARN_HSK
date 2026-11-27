@@ -15,11 +15,11 @@ export interface BulkImportLessonsPayload {
     exampleVi?: string;
   }>;
   extractedExercises?: Array<{
-    exerciseType?: "quiz" | "fill_blank" | "listen" | "translate";
+    exerciseType?: "translate" | "fill_blank" | "writing" | "listen" | "quiz";
     title: string;
     question: string;
-    options: string[];
-    correctAnswer: string;
+    options?: string[];
+    correctAnswer?: string;
     explanation?: string;
     xpReward?: number;
   }>;
@@ -33,16 +33,6 @@ export interface BulkImportLessonsResponse {
   totalWords: number;
   totalExercises: number;
   profile: UserProfile;
-}
-
-export interface SubmitExerciseResponse {
-  correct: boolean;
-  alreadyCompleted?: boolean;
-  correctAnswer: string;
-  explanation: string;
-  xpEarned: number;
-  exercise: ExerciseItem;
-  profile: UserProfile | null;
 }
 
 export const coursesApi = {
@@ -70,19 +60,6 @@ export const coursesApi = {
     const { data } = await apiClient.get<ExerciseItem[]>("/exercises", {
       params: level ? { level } : undefined,
     });
-    return data;
-  },
-
-  submitExercise: async (
-    id: string,
-    answer: string,
-  ): Promise<SubmitExerciseResponse> => {
-    const { data } = await apiClient.post<SubmitExerciseResponse>(
-      `/exercises/${id}/submit`,
-      {
-        answer,
-      },
-    );
     return data;
   },
 };

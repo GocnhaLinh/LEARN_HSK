@@ -9,16 +9,20 @@ export class CoursesService {
   async getAllCourses() {
     return Promise.all(
       COURSES_META.map(async (course) => {
-        const model = this.hskCollections.getModel(course.level);
-        const [summary, lessonCount, wordCount, masteredCount, exerciseCount, completedExercises] =
-          await Promise.all([
-            model.findOne({ category: 'course_summary', level: course.level }).lean().exec(),
-            model.countDocuments({ category: 'lesson' }).exec(),
-            model.countDocuments({ category: 'vocab' }).exec(),
-            model.countDocuments({ category: 'vocab', status: 'mastered' }).exec(),
-            model.countDocuments({ category: 'exercise' }).exec(),
-            model.countDocuments({ category: 'exercise', completed: true }).exec(),
-          ]);
+        const lv = this.hskCollections.getLevel(course.level);
+        const [lessonCount, wordCount, exerciseCount] = await Promise.all([
+          lv.lessons.countDocuments().exec(),
+          lv.vocab.countDocuments().exec(),
+          lv.exercises.countDocuments().exec(),
+        ]);
+
+        // Skip secondary filtered counts on empty HSK levels
+        const [masteredCount, completedExercises] = await Promise.all([
+          wordCount > 0 ? lv.vocab.countDocuments({ status: 'mastered' }).exec() : Promise.resolve(0),
+          exerciseCount > 0
+            ? lv.exercises.countDocuments({ completed: true }).exec()
+            : Promise.resolve(0),
+        ]);
 
         const progressPct = wordCount ? Math.round((masteredCount / wordCount) * 100) : 0;
 
@@ -30,11 +34,6 @@ export class CoursesService {
           progressPct,
           exerciseCount,
           completedExercises,
-          xpEarned: summary?.xpEarned || 0,
-          totalScore: summary?.totalScore || 0,
-          highScore: summary?.highScore || 0,
-          bestCombo: summary?.bestCombo || 0,
-          gamesPlayed: summary?.gamesPlayed || 0,
         };
       }),
     );
@@ -46,12 +45,11 @@ export class CoursesService {
       throw new NotFoundException(`HSK course level ${level} not found`);
     }
 
-    const model = this.hskCollections.getModel(level);
-    const [summary, lessons, words, exercises] = await Promise.all([
-      model.findOne({ category: 'course_summary', level }).lean().exec(),
-      model.find({ category: 'lesson' }).sort({ order: 1, createdAt: -1 }).lean().exec(),
-      model.find({ category: 'vocab' }).sort({ order: 1, createdAt: -1 }).lean().exec(),
-      model.find({ category: 'exercise' }).sort({ order: 1, createdAt: -1 }).lean().exec(),
+    const lv = this.hskCollections.getLevel(level);
+    const [lessons, words, exercises] = await Promise.all([
+      lv.lessons.find().select('-_id -__v').sort({ order: 1, createdAt: -1 }).lean().exec(),
+      lv.vocab.find().select('-_id -__v').sort({ order: 1, createdAt: -1 }).lean().exec(),
+      lv.exercises.find().select('-_id -__v').sort({ order: 1, createdAt: -1 }).lean().exec(),
     ]);
 
     const masteredCount = words.filter((w) => w.status === 'mastered').length;
@@ -67,11 +65,6 @@ export class CoursesService {
         progressPct,
         exerciseCount: exercises.length,
         completedExercises,
-        xpEarned: summary?.xpEarned || 0,
-        totalScore: summary?.totalScore || 0,
-        highScore: summary?.highScore || 0,
-        bestCombo: summary?.bestCombo || 0,
-        gamesPlayed: summary?.gamesPlayed || 0,
       },
       lessons,
       words,

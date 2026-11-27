@@ -27,5 +27,9 @@ export class ImportBackupDto {
 
   @IsOptional()
   @IsArray()
+  exercises?: any[];
+
+  @IsOptional()
+  @IsArray()
   notes?: any[];
 }

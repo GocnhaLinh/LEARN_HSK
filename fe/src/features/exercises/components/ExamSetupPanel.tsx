@@ -7,12 +7,11 @@ import {
   Database,
   Eye,
   History,
+  Keyboard,
   Play,
   RotateCcw,
   ShieldCheck,
-  Shuffle,
   SlidersHorizontal,
-  Sparkles,
   Trash2,
   Trophy,
 } from 'lucide-react';
@@ -55,7 +54,14 @@ export interface ExamSetupPanelProps {
   onClearSeenBank: () => void;
 }
 
-const EXERCISE_TYPE_ORDER = ['all', 'fill_blank', 'quiz', 'translate', 'listen'] as const;
+const EXERCISE_TYPE_ORDER = [
+  'all',
+  'translate',
+  'fill_blank',
+  'writing',
+  'listen',
+  'quiz',
+] as const;
 
 export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
   meta,
@@ -81,8 +87,12 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
   onClearWrongBank,
   onClearSeenBank,
 }) => {
-  const bestScore = history.length
-    ? history.reduce((max, item) => (item.score10 > max ? item.score10 : max), 0)
+  const scoredHistory = history.filter((item) => typeof item.score10 === 'number');
+  const bestScore = scoredHistory.length
+    ? scoredHistory.reduce(
+        (max, item) => ((item.score10 ?? 0) > max ? item.score10! : max),
+        0,
+      )
     : null;
 
   const actualQuestionCount =
@@ -109,7 +119,11 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
           </Button>
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant="custom" style={{ backgroundColor: meta.color }}>
-              {meta.code} • Phòng Thi Thử
+              {meta.code} • Kiểm tra Tự nhập
+            </Badge>
+            <Badge variant="yellow">
+              <Keyboard className="w-3.5 h-3.5" />
+              Tự dịch nhập tay &amp; File A/B/C/D
             </Badge>
             <Badge variant="mint">
               <ShieldCheck className="w-3.5 h-3.5" />
@@ -121,12 +135,12 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-1">
           <div>
             <h1 className="font-serif font-bold text-2xl sm:text-3xl">
-              {meta.emoji} Luyện đề &amp; Kiểm tra {meta.code}
+              {meta.emoji} Phòng Kiểm tra &amp; Tự nhập {meta.code}
             </h1>
             <p className="text-xs sm:text-sm opacity-75 mt-1 max-w-2xl leading-relaxed">
-              Sinh đề ngẫu nhiên trực tiếp từ ngân hàng câu hỏi trong database. Chế độ tập
-              trung sẽ ẩn thanh điều hướng trong lúc làm bài — kết quả và giải thích chi tiết
-              chỉ hiển thị sau khi bạn bấm <strong>Nộp bài</strong>.
+              Đề bài chỉ hiển thị câu hỏi / câu tiếng Việt (ẩn hoàn toàn tiếng Trung) để bạn tự
+              nhập đáp án. Sau khi bấm <strong>Nộp bài</strong>, hệ thống mới so sánh trực tiếp
+              với đáp án chuẩn hoặc câu ví dụ tiếng Trung tương ứng.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-2 shrink-0">
@@ -168,14 +182,14 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
               </span>
             </div>
             <h2 className="font-serif font-bold text-lg">
-              {activeDraft.examLabel} — Đã chọn {activeDraft.answeredCount}/
+              {activeDraft.examLabel} — Đã nhập {activeDraft.answeredCount}/
               {activeDraft.totalQuestions} câu
             </h2>
             <p className="font-mono text-xs opacity-75">
               {activeDraft.remainingSeconds !== null
                 ? `Còn lại ${formatTimer(activeDraft.remainingSeconds)}`
                 : `Đã làm ${formatTimer(activeDraft.elapsedSeconds)}`}{' '}
-              • Các đáp án bạn chọn trước khi thoát/F5 vẫn được giữ nguyên.
+              • Toàn bộ câu trả lời bạn đã gõ trước đó vẫn được giữ nguyên.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -204,8 +218,8 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
         <Card padding="none">
           <EmptyState
             icon={<Database className="w-10 h-10" />}
-            title={`Chưa có ngân hàng câu hỏi cho ${meta.code}`}
-            description={`Khóa học ${meta.code} hiện chưa có bài tập trong database. Hãy quay lại trang khóa học và tải giáo trình (.PDF / .DOCX / .TXT) để tự động sinh bộ câu hỏi.`}
+            title={`Chưa có ngân hàng bài tập cho ${meta.code}`}
+            description={`Khóa học ${meta.code} hiện chưa có bài tập trong database. Hãy quay lại trang khóa học để tải file từ vựng (có câu ví dụ) hoặc file bài tập riêng (.PDF / .DOCX / .TXT).`}
             actions={
               <Button
                 variant="primary"
@@ -213,7 +227,7 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
                 leftIcon={<ArrowLeft className="w-4 h-4" />}
                 onClick={onBackToCourse}
               >
-                Quay lại {meta.code} để tải giáo trình
+                Quay lại {meta.code} để tải file
               </Button>
             }
           />
@@ -225,7 +239,7 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
             <div className="flex items-center justify-between gap-2 pb-3 border-b border-dashed border-current/15">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4" />
-                <h2 className="font-serif font-bold text-xl">Cấu hình đề thi ngẫu nhiên</h2>
+                <h2 className="font-serif font-bold text-xl">Cấu hình đề kiểm tra ngẫu nhiên</h2>
               </div>
               <Badge variant="yellow">Khớp bộ lọc: {filteredCount} câu</Badge>
             </div>
@@ -285,7 +299,7 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
               <div className="space-y-1.5">
                 <label className="font-mono text-[11px] font-bold uppercase opacity-75 flex items-center gap-1.5">
                   <BookOpen className="w-3.5 h-3.5" />
-                  <span>3. Phạm vi bài học</span>
+                  <span>3. Phạm vi bài học / bộ đề</span>
                 </label>
                 <Select
                   value={config.lessonId}
@@ -327,60 +341,23 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
               </div>
             </div>
 
-            {/* Exam generation toggles */}
-            <div className="space-y-2">
-              <label className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#F8F6F1] border border-[#141414]/30 cursor-pointer select-none">
-                <span className="flex items-center gap-2 font-mono text-xs font-bold text-[#141414]">
-                  <Compass className="w-3.5 h-3.5 shrink-0" />
-                  <span>
-                    Ưu tiên rút câu chưa làm (còn {unseenRemaining} câu mới chưa gặp)
-                  </span>
+            {/* Prioritize unseen checkbox */}
+            <label className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#F8F6F1] border border-[#141414]/30 cursor-pointer select-none">
+              <span className="flex items-center gap-2 font-mono text-xs font-bold text-[#141414]">
+                <Compass className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  Ưu tiên rút câu chưa làm (còn {unseenRemaining} câu mới chưa gặp)
                 </span>
-                <input
-                  type="checkbox"
-                  checked={config.prioritizeUnseen}
-                  onChange={(e) =>
-                    onUpdateConfig({ prioritizeUnseen: e.target.checked })
-                  }
-                  className="w-4 h-4 accent-[#111111] shrink-0"
-                />
-              </label>
-
-              <label className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#F8F6F1] border border-[#141414]/30 cursor-pointer select-none">
-                <span className="flex items-center gap-2 font-mono text-xs font-bold text-[#141414]">
-                  <Shuffle className="w-3.5 h-3.5 shrink-0" />
-                  <span>Xáo trộn ngẫu nhiên vị trí đáp án A / B / C / D mỗi lần thi</span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={config.shuffleOptions}
-                  onChange={(e) => onUpdateConfig({ shuffleOptions: e.target.checked })}
-                  className="w-4 h-4 accent-[#111111] shrink-0"
-                />
-              </label>
-            </div>
-
-            {/* Focus Mode Callout */}
-            <div className="p-3.5 rounded-lg bg-[#EFE078]/35 border border-[#141414]/40 text-xs leading-relaxed">
-              <div className="font-mono font-bold text-[11px] uppercase mb-1 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Quy chế phòng thi tập trung</span>
-              </div>
-              <ul className="space-y-0.5 opacity-85 list-disc list-inside">
-                <li>
-                  Thanh điều hướng ngoài và nút Back trình duyệt sẽ được <strong>khóa</strong>{' '}
-                  trong lúc làm bài (tự lưu nháp nếu lỡ F5).
-                </li>
-                <li>
-                  Chọn đáp án <strong>không lộ đúng/sai</strong> ngay lập tức — chỉ chấm điểm
-                  và giải thích sau khi bấm <strong>Nộp bài</strong>.
-                </li>
-                <li>
-                  Toàn bộ điểm số, lịch sử xem lại và sổ tay câu hay sai chỉ lưu cục bộ trên
-                  trình duyệt (không ghi lên database).
-                </li>
-              </ul>
-            </div>
+              </span>
+              <input
+                type="checkbox"
+                checked={config.prioritizeUnseen}
+                onChange={(e) =>
+                  onUpdateConfig({ prioritizeUnseen: e.target.checked })
+                }
+                className="w-4 h-4 accent-[#111111] shrink-0"
+              />
+            </label>
 
             {/* Action CTAs */}
             <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
@@ -393,8 +370,8 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
                 onClick={onStartRandomExam}
               >
                 {isLoading
-                  ? 'Đang tải ngân hàng câu hỏi...'
-                  : `Bắt đầu thi thử (${actualQuestionCount} câu)`}
+                  ? 'Đang tải ngân hàng bài tập...'
+                  : `Bắt đầu làm bài tự nhập (${actualQuestionCount} câu)`}
               </Button>
             </div>
           </Card>
@@ -444,8 +421,8 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
                 </Badge>
               </div>
               <p className="text-xs opacity-75 leading-relaxed">
-                Những câu bạn trả lời sai hoặc bỏ trống khi nộp bài sẽ tự động lưu tại máy để
-                ôn tập riêng. Khi bạn làm đúng lại câu đó, nó sẽ tự được gỡ khỏi danh sách.
+                Những câu có đáp án mẫu mà bạn nhập sai hoặc bỏ trống sẽ tự động lưu tại máy để
+                ôn lại. Khi bạn gõ đúng lại câu đó, nó sẽ tự được gỡ khỏi danh sách.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -470,13 +447,13 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
               </div>
             </Card>
 
-            {/* Local History Card (Clickable to Review!) */}
+            {/* Local History Card */}
             <Card padding="md" className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <History className="w-4 h-4" />
                   <h3 className="font-serif font-bold text-lg">
-                    Lịch sử thi thử ({history.length})
+                    Lịch sử làm bài ({history.length})
                   </h3>
                 </div>
                 {history.length > 0 && (
@@ -493,14 +470,19 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
 
               {history.length === 0 ? (
                 <div className="p-4 rounded-lg bg-[#F8F6F1] border border-dashed border-[#141414]/25 text-center font-mono text-xs opacity-65">
-                  Chưa có lượt thi thử nào cho {meta.code}. Hãy bắt đầu đề ngẫu nhiên đầu
-                  tiên!
+                  Chưa có lượt làm bài nào cho {meta.code}. Hãy bắt đầu đề ngẫu nhiên đầu tiên!
                 </div>
               ) : (
                 <div className="space-y-2 max-h-80 overflow-y-auto pr-0.5">
                   {history.map((item) => {
-                    const scoreVariant =
-                      item.score10 >= 8 ? 'mint' : item.score10 >= 5 ? 'yellow' : 'pink';
+                    const hasScore = typeof item.score10 === 'number';
+                    const scoreVariant = !hasScore
+                      ? 'lavender'
+                      : item.score10! >= 8
+                        ? 'mint'
+                        : item.score10! >= 5
+                          ? 'yellow'
+                          : 'pink';
                     const canReview = Array.isArray(item.records) && item.records.length > 0;
                     return (
                       <button
@@ -509,7 +491,7 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
                         onClick={() => onOpenHistoryAttempt(item)}
                         title={
                           canReview
-                            ? 'Bấm để xem lại chi tiết bài làm & đáp án'
+                            ? 'Bấm để xem lại chi tiết bài làm & đối chiếu đáp án'
                             : 'Lượt thi cũ chưa lưu chi tiết từng câu'
                         }
                         className={`w-full text-left p-3 rounded-lg bg-[#F8F6F1] border border-[#141414]/20 flex items-center justify-between gap-2 transition ${
@@ -531,7 +513,9 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
                             <span>{formatAttemptDate(item.completedAt)}</span>
                             <span>•</span>
                             <span>
-                              Đúng {item.correctCount}/{item.total}
+                              {hasScore
+                                ? `Đúng ${item.correctCount}/${item.total}`
+                                : `${item.total} câu tự luận`}
                             </span>
                             <span>•</span>
                             <span>{formatTimer(item.elapsedSeconds)}</span>
@@ -540,7 +524,7 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
                         <div className="flex items-center gap-1 shrink-0">
                           <Badge variant={scoreVariant} size="sm">
                             <Trophy className="w-3 h-3" />
-                            {item.score10.toFixed(1)}/10
+                            {hasScore ? `${item.score10!.toFixed(1)}/10` : 'Tự luận'}
                           </Badge>
                           {canReview && (
                             <ChevronRight className="w-3.5 h-3.5 opacity-45 group-hover:opacity-100 group-hover:translate-x-0.5 transition" />

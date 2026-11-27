@@ -34,6 +34,15 @@ function splitBilingualExample(text: string): { exampleZh: string; exampleVi: st
       exampleVi: cleaned.slice(idx).replace(/^[\s\-–—]+/, '').trim(),
     };
   }
+  const parenMatch = cleaned.match(
+    /^([\s\S]*?[\u4e00-\u9fff][\s\S]*?)\s*[（(]([^()（）]*[a-zA-ZÀ-ỹ]{2,}[^()（）]*)[）)]\s*$/,
+  );
+  if (parenMatch && !/[\u4e00-\u9fff]/.test(parenMatch[2])) {
+    return {
+      exampleZh: parenMatch[1].trim(),
+      exampleVi: parenMatch[2].trim(),
+    };
+  }
   return { exampleZh: cleaned, exampleVi: '' };
 }
 
@@ -261,6 +270,13 @@ export function smartExtractChineseVocab(rawText: string): ExtractedVocabRow[] {
 
   lines.forEach((rawLine) => {
     if (!/[\u4e00-\u9fff]/.test(rawLine)) return;
+    // Skip explicit exercise/Q&A lines so standalone exercise files aren't misread as vocab
+    if (
+      /^(?:Câu|Bài|Question|Đáp án|Answer|Key|Trả lời)\b/i.test(rawLine) ||
+      /(?:=>|->|→)/.test(rawLine)
+    ) {
+      return;
+    }
 
     // Pattern 1: Tab or Pipe-delimited multi-column table
     const cols = rawLine
@@ -374,9 +390,22 @@ export function smartExtractChineseVocab(rawText: string): ExtractedVocabRow[] {
         parts.find((p) => /^[\u4e00-\u9fff]{1,6}$/.test(p)) ||
         parts.find((p) => /[\u4e00-\u9fff]/.test(p));
       const hanziMatch = hanziPart ? hanziPart.match(/[\u4e00-\u9fff]{1,6}/) : null;
-      if (hanziMatch && hanziPart && hanziPart.length <= 10) {
+      if (
+        hanziMatch &&
+        hanziPart &&
+        hanziPart.length <= 10 &&
+        !/[。！？!?，,]/.test(hanziPart)
+      ) {
         const hanzi = hanziMatch[0];
         const rest = parts.filter((p) => p !== hanziPart);
+        // Full Vietnamese sentence paired with Chinese (no Pinyin) -> translation exercise, not vocab
+        if (
+          rest.length === 1 &&
+          !isPinyinLike(rest[0]) &&
+          (/[。！？!?.]/.test(rest[0]) || rest[0].split(/\s+/).length >= 5)
+        ) {
+          return;
+        }
         let pinyin = '';
         let meaning = '';
         if (rest.length >= 2) {
@@ -410,35 +439,234 @@ export function smartExtractChineseVocab(rawText: string): ExtractedVocabRow[] {
 }
 
 /**
- * Also detects explicit multiple-choice questions inside PDF/DOCX/TXT documents:
- *   Câu 1: ... / 1. ...
- *   A. ...  B. ...  C. ...  D. ...
- *   Đáp án: A (or Answer: B)
+ * Detects standalone typed-input exercises inside PDF/DOCX/TXT documents (NO multiple-choice):
+ *  - Explicit Q&A blocks: "Câu 1: ... / Đáp án: ..." (also converts legacy A/B/C/D blocks to typed answers)
+ *  - Bilingual translation lines (for exercise-only files): "Tiếng Việt — Tiếng Trung" or "Tiếng Trung — Tiếng Việt"
+ *    -> always puts ONLY Vietnamese in `question` and Chinese in `correctAnswer`!
+ *  - Numbered standalone questions (with optional Chinese answer on next line, or empty `correctAnswer` for self-check)
  */
-export function extractWrittenExercises(rawText: string): ExtractedExerciseRow[] {
+export function extractWrittenExercises(
+  rawText: string,
+  hasVocabRows = false,
+): ExtractedExerciseRow[] {
   const exercises: ExtractedExerciseRow[] = [];
-  const blockRegex =
+  const seenQuestions = new Set<string>();
+  const normalizedText = (rawText || '').replace(/\r\n/g, '\n');
+
+  const pushUnique = (item: ExtractedExerciseRow) => {
+    const qKey = item.question.trim().toLowerCase();
+    if (!qKey || seenQuestions.has(qKey)) return;
+    seenQuestions.add(qKey);
+    const cleanOptions = Array.isArray(item.options)
+      ? item.options.map((o) => o.trim()).filter(Boolean)
+      : [];
+    exercises.push({
+      selected: true,
+      ...item,
+      options: cleanOptions.length >= 2 ? cleanOptions : undefined,
+      correctAnswer: (item.correctAnswer || '').trim(),
+    });
+  };
+
+  // Format 1A: Dedicated exercise files that explicitly contain A / B / C / D choices -> KEEP real options!
+  const mcqRegex =
     /(?:^|\n)\s*(?:Câu|Bài|Question)?\s*(\d+)[.:：)]\s*([^\n]+(?:\n(?![A-D][.):]\s)[^\n]+)*)\n\s*A[.):]\s*([^\n]+)\n\s*B[.):]\s*([^\n]+)(?:\n\s*C[.):]\s*([^\n]+))?(?:\n\s*D[.):]\s*([^\n]+))?(?:\n\s*(?:Đáp án|Answer|Key)\s*[:：]\s*([A-D]))?/gi;
 
   let m: RegExpExecArray | null;
-  while ((m = blockRegex.exec(rawText || '')) !== null) {
+  while ((m = mcqRegex.exec(normalizedText)) !== null) {
     const qNum = m[1];
     const question = (m[2] || '').replace(/\s+/g, ' ').trim();
     const opts = [m[3], m[4], m[5], m[6]].filter(Boolean).map((s) => s.trim());
     if (!question || opts.length < 2) continue;
 
-    const answerLetter = (m[7] || 'A').toUpperCase();
-    const answerIdx = Math.max(0, Math.min(opts.length - 1, answerLetter.charCodeAt(0) - 65));
+    const answerLetter = (m[7] || '').toUpperCase();
+    const answerIdx = answerLetter ? answerLetter.charCodeAt(0) - 65 : -1;
+    const correctAnswer =
+      answerIdx >= 0 && answerIdx < opts.length ? opts[answerIdx] : '';
 
-    exercises.push({
+    pushUnique({
       exerciseType: 'quiz',
       title: `Bài tập trắc nghiệm #${qNum} (từ tài liệu)`,
       question,
       options: opts,
-      correctAnswer: opts[answerIdx],
-      explanation: `Trích xuất trực tiếp từ tài liệu tải lên (Đáp án ${answerLetter}).`,
+      correctAnswer,
+      explanation: correctAnswer
+        ? `Trích xuất từ tài liệu tải lên (Đáp án ${answerLetter}).`
+        : 'Trích xuất từ tài liệu (chưa có đáp án mẫu).',
       xpReward: 20,
     });
+  }
+
+  // Format 1B: Explicit Q&A pairs ("Câu 1: ... \n Đáp án: ..." or "1. ... => ...")
+  const qaBlockRegex =
+    /(?:^|\n)\s*(?:Câu|Bài|Question|Q)?\s*(\d+)[.:：)]\s*([^\n]+)\n\s*(?:Đáp án|Answer|Key|Trả lời|A)\s*[:：=→>-]\s*([^\n]+)/gi;
+
+  while ((m = qaBlockRegex.exec(normalizedText)) !== null) {
+    const qNum = m[1];
+    const question = (m[2] || '').trim();
+    const answer = (m[3] || '').trim();
+    if (!question || !answer) continue;
+    pushUnique({
+      exerciseType: /[\u4e00-\u9fff]/.test(answer) && !/[\u4e00-\u9fff]/.test(question)
+        ? 'translate'
+        : 'writing',
+      title: `Bài tập #${qNum} (từ tài liệu)`,
+      question,
+      options: [],
+      correctAnswer: answer,
+      explanation: `Trích xuất từ tài liệu tải lên.`,
+      xpReward: 20,
+    });
+  }
+
+  // Only run loose line-based exercise extraction when the file is an exercise-only file (0 vocab rows)
+  if (hasVocabRows) {
+    return exercises;
+  }
+
+  const skipHeaderRx =
+    /^(TỪ VỰNG|BÀI TẬP HSK|SOẠN BỞI|STT\b|CÁC BẠN CẦN|ZALO|TIKTOK|VÌ LÀ TÀI LIỆU|RẤT MONG|HỌ VÀ TÊN|NGÀY\s*:)/i;
+  const lines = normalizedText
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !skipHeaderRx.test(l));
+
+  // Track lines already handled by Format 1 or Format 2 so Format 3 never creates duplicates
+  const consumedLines = new Set<number>();
+  lines.forEach((line, idx) => {
+    const stripped = line.replace(/^(?:Câu|Bài|Question|Q)?\s*\d+[.:：)]\s*/i, '').trim();
+    if (
+      seenQuestions.has(stripped.toLowerCase()) ||
+      /^[A-D][.):]\s/i.test(line) ||
+      /^(?:Đáp án|Answer|Key|Trả lời)\s*[:：]/i.test(line)
+    ) {
+      consumedLines.add(idx);
+    }
+  });
+
+  // Format 2: Bilingual lines (Vietnamese <-> Chinese) or inline "Question => Answer"
+  for (let i = 0; i < lines.length; i++) {
+    if (consumedLines.has(i)) continue;
+    const rawLine = lines[i];
+
+    // Inline arrow / equals answer separator: "1. Hôm nay trời đẹp => 今天天气很好。"
+    const inlineArrow = rawLine.match(
+      /^(?:(?:Câu|Bài|Q)\s*)?(\d+)?[.:：)]?\s*(.+?)\s*(?:=>|->|→)\s*(.+)$/i,
+    );
+    if (inlineArrow) {
+      const qNum = inlineArrow[1] || String(exercises.length + 1);
+      const left = inlineArrow[2].trim();
+      const right = inlineArrow[3].trim();
+      if (left.length >= 2 && right.length >= 1) {
+        const leftHasZh = /[\u4e00-\u9fff]/.test(left);
+        const rightHasZh = /[\u4e00-\u9fff]/.test(right);
+        const isZhToVi = leftHasZh && !rightHasZh;
+        pushUnique({
+          exerciseType: leftHasZh || rightHasZh ? 'translate' : 'writing',
+          title: isZhToVi ? `Dịch sang tiếng Trung #${qNum}` : `Bài tập #${qNum}`,
+          question: isZhToVi ? right : left,
+          options: [],
+          correctAnswer: isZhToVi ? left : right,
+          explanation: 'Trích xuất từ file bài tập.',
+          xpReward: 20,
+        });
+        consumedLines.add(i);
+        continue;
+      }
+    }
+
+    // Bilingual line separated by tab, pipe, or dash: "Tiếng Việt - Tiếng Trung" or "Tiếng Trung - Tiếng Việt"
+    const strippedNum = rawLine.replace(/^(?:(?:Câu|Bài)\s*)?\d+[.:：)]\s*/i, '').trim();
+    const bilingualParts = strippedNum
+      .split(/\t|\s*\|\s*|\s+[-–—]\s+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    if (bilingualParts.length === 2) {
+      const [p1, p2] = bilingualParts;
+      const p1Zh = /[\u4e00-\u9fff]/.test(p1);
+      const p2Zh = /[\u4e00-\u9fff]/.test(p2);
+      const p1Vi = /[a-zA-ZÀ-ỹ]{2,}/.test(p1);
+      const p2Vi = /[a-zA-ZÀ-ỹ]{2,}/.test(p2);
+
+      if (p1Vi && !p1Zh && p2Zh) {
+        pushUnique({
+          exerciseType: 'translate',
+          title: `Dịch sang tiếng Trung #${exercises.length + 1}`,
+          question: p1,
+          options: [],
+          correctAnswer: p2,
+          explanation: 'Trích xuất từ file bài tập song ngữ.',
+          xpReward: 20,
+        });
+        consumedLines.add(i);
+        continue;
+      }
+      if (p1Zh && p2Vi && !p2Zh) {
+        pushUnique({
+          exerciseType: 'translate',
+          title: `Dịch sang tiếng Trung #${exercises.length + 1}`,
+          question: p2,
+          options: [],
+          correctAnswer: p1,
+          explanation: 'Trích xuất từ file bài tập song ngữ.',
+          xpReward: 20,
+        });
+        consumedLines.add(i);
+        continue;
+      }
+    }
+  }
+
+  // Format 3: Standalone numbered questions (skipping lines already parsed by Format 1 & 2)
+  for (let i = 0; i < lines.length; i++) {
+    if (consumedLines.has(i)) continue;
+    const line = lines[i];
+    const numbered = line.match(/^(?:Câu|Bài|Question|Q)?\s*(\d+)[.:：)]\s*(.+)$/i);
+    if (!numbered) continue;
+
+    const qNum = numbered[1];
+    const prompt = numbered[2].trim();
+    if (prompt.length < 4) continue;
+
+    let answer = '';
+    const nextLine = !consumedLines.has(i + 1) ? lines[i + 1] || '' : '';
+    const nextIsNumbered = /^(?:Câu|Bài|Question|Q)?\s*\d+[.:：)]\s*/i.test(nextLine);
+    const nextExplicitAns = nextLine.match(/^(?:Đáp án|Answer|Key|Trả lời)\s*[:：]\s*(.+)$/i);
+
+    if (nextExplicitAns) {
+      answer = nextExplicitAns[1].trim();
+      consumedLines.add(i + 1);
+      i += 1;
+    } else if (
+      nextLine &&
+      !nextIsNumbered &&
+      /[\u4e00-\u9fff]/.test(nextLine) &&
+      !/[a-zA-ZÀ-ỹ]{3,}/.test(nextLine) &&
+      !/[\u4e00-\u9fff]/.test(prompt)
+    ) {
+      answer = nextLine;
+      consumedLines.add(i + 1);
+      i += 1;
+    }
+
+    const isFillBlank = /_{2,}|＿{2,}|\(\s*\)|（\s*）/.test(prompt);
+    pushUnique({
+      exerciseType: isFillBlank
+        ? 'fill_blank'
+        : !/[\u4e00-\u9fff]/.test(prompt) && /[\u4e00-\u9fff]/.test(answer)
+          ? 'translate'
+          : 'writing',
+      title: `Bài tập #${qNum}`,
+      question: prompt,
+      options: [],
+      correctAnswer: answer,
+      explanation: answer
+        ? 'Trích xuất từ file bài tập.'
+        : 'Chưa có đáp án mẫu trong file — bạn có thể tự đối chiếu sau khi nộp.',
+      xpReward: 20,
+    });
+    consumedLines.add(i);
   }
 
   return exercises;
@@ -539,6 +767,6 @@ export async function parseCourseFile(
   }
 
   const words = tableExtracted.length > 0 ? tableExtracted : smartExtractChineseVocab(rawText);
-  const exercises = extractWrittenExercises(rawText);
+  const exercises = extractWrittenExercises(rawText, words.length > 0);
   return { words, exercises };
 }

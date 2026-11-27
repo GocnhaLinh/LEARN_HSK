@@ -1,9 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
+import { CLEAN_SCHEMA_OPTIONS } from './schema-options';
 
 export type LessonDocument = HydratedDocument<Lesson>;
 
-@Schema({ timestamps: true, collection: 'lessons' })
+@Schema({ ...CLEAN_SCHEMA_OPTIONS, collection: 'lessons' })
 export class Lesson {
   @Prop({ required: true, unique: true, index: true })
   id: string;
@@ -25,3 +26,4 @@ export class Lesson {
 }
 
 export const LessonSchema = SchemaFactory.createForClass(Lesson);
+LessonSchema.index({ order: 1, createdAt: -1 });

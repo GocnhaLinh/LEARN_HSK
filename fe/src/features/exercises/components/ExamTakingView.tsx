@@ -4,8 +4,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  FastForward,
+  Eraser,
   Flag,
+  Keyboard,
   LayoutGrid,
   List,
   Lock,
@@ -13,14 +14,15 @@ import {
   Send,
   Volume2,
 } from 'lucide-react';
-import React from 'react';
-import { Badge, Button, Card, Modal, ProgressBar } from '@/components/ui';
+import React, { useEffect, useRef } from 'react';
+import { Badge, Button, Card, Modal, ProgressBar, Textarea } from '@/components/ui';
 import type { ExamConfirmModal } from '@/features/exercises/hooks/useExamSession';
 import {
   ExamQuestion,
   ExamViewMode,
   formatTimer,
   getExerciseTypeLabel,
+  hasSelectableOptions,
   OPTION_LETTERS,
 } from '@/features/exercises/utils/exam-utils';
 import { speakChinese } from '@/lib/speech-utils';
@@ -35,21 +37,19 @@ export interface ExamTakingViewProps {
   flaggedIds: Record<string, boolean>;
   currentIndex: number;
   viewMode: ExamViewMode;
-  autoAdvance: boolean;
   elapsedSeconds: number;
   remainingSeconds: number | null;
   answeredCount: number;
   unansweredCount: number;
   flaggedCount: number;
   confirmModal: ExamConfirmModal;
-  onSelectAnswer: (questionId: string, option: string) => void;
+  onUpdateAnswer: (questionId: string, value: string) => void;
   onToggleFlag: (questionId: string) => void;
   onGoToQuestion: (index: number) => void;
   onGoToFirstUnanswered: () => void;
   onPrevQuestion: () => void;
   onNextQuestion: () => void;
   onChangeViewMode: (mode: ExamViewMode) => void;
-  onToggleAutoAdvance: (enabled: boolean) => void;
   onRequestSubmit: () => void;
   onConfirmSubmit: () => void;
   onRequestExit: () => void;
@@ -57,115 +57,185 @@ export interface ExamTakingViewProps {
   onCloseConfirmModal: () => void;
 }
 
-interface QuestionCardProps {
+interface TypedQuestionCardProps {
   question: ExamQuestion;
   index: number;
   total: number;
-  selectedOption?: string;
+  value: string;
   isFlagged: boolean;
-  onSelect: (option: string) => void;
-  onToggleFlag: () => void;
+  autoFocus?: boolean;
+  onChange: (questionId: string, value: string) => void;
+  onToggleFlag: (questionId: string) => void;
 }
 
-const ExamQuestionCard: React.FC<QuestionCardProps> = ({
-  question,
-  index,
-  total,
-  selectedOption,
-  isFlagged,
-  onSelect,
-  onToggleFlag,
-}) => {
-  const showToast = useToastStore((s) => s.showToast);
+const TypedQuestionCard: React.FC<TypedQuestionCardProps> = React.memo(
+  ({
+    question,
+    index,
+    total,
+    value,
+    isFlagged,
+    autoFocus = false,
+    onChange,
+    onToggleFlag,
+  }) => {
+    const showToast = useToastStore((s) => s.showToast);
+    const inputRef = useRef<HTMLTextAreaElement | null>(null);
+    const hasAnswer = value.trim().length > 0;
+    const isMcq = hasSelectableOptions(question);
 
-  return (
-    <Card id={`exam-q-${index}`} padding="lg" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-dashed border-current/15">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="dark" size="xs">
-            CÂU {index + 1} / {total}
-          </Badge>
-          <Badge variant="subtle" size="xs">
-            {getExerciseTypeLabel(question.exerciseType)}
-          </Badge>
-          {selectedOption && (
-            <Badge variant="mint" size="xs">
-              <CheckCircle2 className="w-3 h-3" />
-              Đã chọn
+    useEffect(() => {
+      if (autoFocus && !isMcq && inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, [autoFocus, isMcq, question.id]);
+
+    const placeholderText =
+      question.exerciseType === 'translate'
+        ? 'Nhập câu dịch tiếng Trung tương ứng của bạn...'
+        : question.exerciseType === 'fill_blank'
+          ? 'Nhập từ tiếng Trung điền vào chỗ trống...'
+          : 'Nhập câu trả lời của bạn tại đây...';
+
+    return (
+      <Card id={`exam-q-${index}`} padding="lg" className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-dashed border-current/15">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="dark" size="xs">
+              CÂU {index + 1} / {total}
             </Badge>
-          )}
+            <Badge variant="subtle" size="xs">
+              {getExerciseTypeLabel(question.exerciseType)}
+            </Badge>
+            {hasAnswer && (
+              <Badge variant="mint" size="xs">
+                <CheckCircle2 className="w-3 h-3" />
+                Đã nhập
+              </Badge>
+            )}
+          </div>
+
+          <Button
+            variant={isFlagged ? 'pink' : 'default'}
+            size="xs"
+            leftIcon={<Flag className="w-3 h-3" />}
+            onClick={() => onToggleFlag(question.id)}
+          >
+            {isFlagged ? 'Đã đánh dấu' : 'Đánh dấu xem lại'}
+          </Button>
         </div>
 
-        <Button
-          variant={isFlagged ? 'pink' : 'default'}
-          size="xs"
-          leftIcon={<Flag className="w-3 h-3" />}
-          onClick={onToggleFlag}
-        >
-          {isFlagged ? 'Đã đánh dấu' : 'Đánh dấu xem lại'}
-        </Button>
-      </div>
-
-      <div className="space-y-2.5">
-        <h2 className="font-serif font-bold text-lg sm:text-xl leading-snug">
-          {question.title}
-        </h2>
-        <div className="p-4 rounded-xl bg-[#F8F6F1] border border-[#141414]/20 flex items-start justify-between gap-3">
-          <p className="text-base sm:text-lg font-medium leading-relaxed text-[#141414] whitespace-pre-line">
-            {question.question}
-          </p>
-          {question.exerciseType === 'listen' && (
-            <Button
-              variant="primary"
-              size="icon"
-              title="Nghe câu hỏi"
-              onClick={() =>
-                speakChinese(question.question, 0.9, (m) => showToast(m, 'pink'))
-              }
-              className="shrink-0"
-            >
-              <Volume2 className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Options Grid — NO right/wrong spoilers during exam! */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-        {question.options.map((opt, optIdx) => {
-          const isSelected = selectedOption === opt;
-          const letter = OPTION_LETTERS[optIdx] || String(optIdx + 1);
-          return (
-            <button
-              key={`${question.id}_${opt}_${optIdx}`}
-              type="button"
-              onClick={() => onSelect(opt)}
-              aria-pressed={isSelected}
-              className={`t-btn px-3.5 py-3 flex items-center gap-3 text-left transition-all ${
-                isSelected
-                  ? 'bg-[#EFE078] text-[#111111] ring-2 ring-[#141414]'
-                  : 'bg-[#F8F6F1] text-[#111111] hover:bg-white'
-              }`}
-            >
-              <span
-                className={`w-7 h-7 rounded-md font-mono text-xs font-bold flex items-center justify-center shrink-0 border border-[#141414] ${
-                  isSelected
-                    ? 'bg-[#111111] text-[#EFE078]'
-                    : 'bg-white text-[#111111]'
-                }`}
+        {/* Prompt — ONLY shows the question (e.g. Vietnamese sentence only, NO Chinese shown beside it) */}
+        <div className="space-y-2.5">
+          <h2 className="font-serif font-bold text-lg sm:text-xl leading-snug">
+            {question.title}
+          </h2>
+          <div className="p-4 rounded-xl bg-[#F8F6F1] border border-[#141414]/20 flex items-start justify-between gap-3">
+            <p className="text-base sm:text-lg font-medium leading-relaxed text-[#141414] whitespace-pre-line">
+              {question.question}
+            </p>
+            {question.exerciseType === 'listen' && (
+              <Button
+                variant="primary"
+                size="icon"
+                title="Nghe câu hỏi"
+                onClick={() =>
+                  speakChinese(question.question, 0.9, (m) => showToast(m, 'pink'))
+                }
+                className="shrink-0"
               >
-                {letter}
+                <Volume2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Answer Area: A/B/C/D options ONLY when the exercise came from an MCQ file; otherwise 100% Typed Input */}
+        {isMcq ? (
+          <div className="space-y-2 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {question.options!.map((opt, optIdx) => {
+                const isSelected = value === opt;
+                const letter = OPTION_LETTERS[optIdx] || String(optIdx + 1);
+                return (
+                  <button
+                    key={`${question.id}_${opt}_${optIdx}`}
+                    type="button"
+                    onClick={() => onChange(question.id, opt)}
+                    aria-pressed={isSelected}
+                    className={`t-btn px-3.5 py-3 flex items-center gap-3 text-left transition-all ${
+                      isSelected
+                        ? 'bg-[#EFE078] text-[#111111] ring-2 ring-[#141414]'
+                        : 'bg-[#F8F6F1] text-[#111111] hover:bg-white'
+                    }`}
+                  >
+                    <span
+                      className={`w-7 h-7 rounded-md font-mono text-xs font-bold flex items-center justify-center shrink-0 border border-[#141414] ${
+                        isSelected
+                          ? 'bg-[#111111] text-[#EFE078]'
+                          : 'bg-white text-[#111111]'
+                      }`}
+                    >
+                      {letter}
+                    </span>
+                    <span className="flex-1 text-center pr-4 text-sm font-semibold leading-snug break-words">
+                      {opt}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="font-mono text-[11px] opacity-65 text-right">
+              Đáp án chuẩn sẽ được đối chiếu sau khi bấm Nộp bài
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between gap-2">
+              <label
+                htmlFor={`answer-input-${question.id}`}
+                className="font-mono text-[11px] font-bold uppercase opacity-75 flex items-center gap-1.5"
+              >
+                <Keyboard className="w-3.5 h-3.5" />
+                <span>Câu trả lời của bạn</span>
+              </label>
+              {hasAnswer && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  leftIcon={<Eraser className="w-3 h-3" />}
+                  onClick={() => onChange(question.id, '')}
+                >
+                  Xóa ô nhập
+                </Button>
+              )}
+            </div>
+
+            <Textarea
+              ref={inputRef}
+              id={`answer-input-${question.id}`}
+              rows={3}
+              value={value}
+              onChange={(e) => onChange(question.id, e.target.value)}
+              placeholder={placeholderText}
+              autoComplete="off"
+              spellCheck={false}
+              className="font-serifcn text-base sm:text-lg leading-relaxed bg-white focus:ring-2 focus:ring-[#EFE078]"
+            />
+
+            <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] opacity-65">
+              <span>
+                {hasAnswer ? `Đã nhập ${Array.from(value.trim()).length} ký tự` : 'Chưa nhập đáp án'}
               </span>
-              <span className="flex-1 text-center pr-4 text-sm font-semibold leading-snug break-words">
-                {opt}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </Card>
-  );
-};
+              <span>Đáp án chuẩn sẽ được đối chiếu sau khi bấm Nộp bài</span>
+            </div>
+          </div>
+        )}
+      </Card>
+    );
+  },
+);
+TypedQuestionCard.displayName = 'TypedQuestionCard';
 
 export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
   meta,
@@ -175,21 +245,19 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
   flaggedIds,
   currentIndex,
   viewMode,
-  autoAdvance,
   elapsedSeconds,
   remainingSeconds,
   answeredCount,
   unansweredCount,
   flaggedCount,
   confirmModal,
-  onSelectAnswer,
+  onUpdateAnswer,
   onToggleFlag,
   onGoToQuestion,
   onGoToFirstUnanswered,
   onPrevQuestion,
   onNextQuestion,
   onChangeViewMode,
-  onToggleAutoAdvance,
   onRequestSubmit,
   onConfirmSubmit,
   onRequestExit,
@@ -214,13 +282,13 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
           <div className="flex flex-wrap items-center gap-2 min-w-0">
             <Badge variant="dark" size="sm">
               <Lock className="w-3 h-3" />
-              THI THỬ {meta.code}
+              KIỂM TRA {meta.code}
             </Badge>
             <span className="font-serif font-bold text-sm sm:text-base truncate">
               {examLabel}
             </span>
             <Badge variant="mint" size="xs">
-              Đã chọn {answeredCount}/{questions.length}
+              Đã nhập {answeredCount}/{questions.length}
             </Badge>
           </div>
 
@@ -292,17 +360,18 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
         <div className="lg:col-span-8 space-y-4">
           {viewMode === 'single' && currentQuestion ? (
             <>
-              <ExamQuestionCard
+              <TypedQuestionCard
                 question={currentQuestion}
                 index={currentIndex}
                 total={questions.length}
-                selectedOption={answers[currentQuestion.id]}
+                value={answers[currentQuestion.id] || ''}
                 isFlagged={Boolean(flaggedIds[currentQuestion.id])}
-                onSelect={(opt) => onSelectAnswer(currentQuestion.id, opt)}
-                onToggleFlag={() => onToggleFlag(currentQuestion.id)}
+                autoFocus
+                onChange={onUpdateAnswer}
+                onToggleFlag={onToggleFlag}
               />
 
-              {/* Single-mode prev/next bar + auto-advance toggle */}
+              {/* Single-mode prev/next bar */}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <Button
                   variant="default"
@@ -314,16 +383,9 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
                   Câu trước
                 </Button>
 
-                <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F8F6F1] border border-[#141414]/25 font-mono text-[11px] font-bold cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={autoAdvance}
-                    onChange={(e) => onToggleAutoAdvance(e.target.checked)}
-                    className="w-3.5 h-3.5 accent-[#111111]"
-                  />
-                  <FastForward className="w-3 h-3" />
-                  <span>Tự chuyển câu</span>
-                </label>
+                <span className="hidden sm:inline font-mono text-[11px] opacity-60">
+                  Phím tắt: Ctrl + Enter câu tiếp • Ctrl + Shift + Enter câu trước
+                </span>
 
                 {currentIndex < questions.length - 1 ? (
                   <Button
@@ -341,29 +403,24 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
                     leftIcon={<Send className="w-4 h-4 text-[#EFE078]" />}
                     onClick={onRequestSubmit}
                   >
-                    Nộp bài &amp; Chấm điểm
+                    Nộp bài &amp; Đối chiếu
                   </Button>
                 )}
               </div>
-
-              <p className="hidden sm:block text-center font-mono text-[11px] opacity-60">
-                Phím tắt: ← → / Enter chuyển câu • A–D hoặc 1–4 chọn đáp án • F đánh dấu xem
-                lại
-              </p>
             </>
           ) : (
             <>
               <div className="space-y-4">
                 {questions.map((q, idx) => (
-                  <ExamQuestionCard
+                  <TypedQuestionCard
                     key={q.id}
                     question={q}
                     index={idx}
                     total={questions.length}
-                    selectedOption={answers[q.id]}
+                    value={answers[q.id] || ''}
                     isFlagged={Boolean(flaggedIds[q.id])}
-                    onSelect={(opt) => onSelectAnswer(q.id, opt)}
-                    onToggleFlag={() => onToggleFlag(q.id)}
+                    onChange={onUpdateAnswer}
+                    onToggleFlag={onToggleFlag}
                   />
                 ))}
               </div>
@@ -374,7 +431,7 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
                   leftIcon={<Send className="w-4 h-4 text-[#EFE078]" />}
                   onClick={onRequestSubmit}
                 >
-                  Nộp bài &amp; Chấm điểm ({answeredCount}/{questions.length})
+                  Nộp bài &amp; Đối chiếu ({answeredCount}/{questions.length})
                 </Button>
               </div>
             </>
@@ -386,13 +443,13 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-serif font-bold text-lg">Bảng câu hỏi</h3>
             <span className="font-mono text-[11px] font-bold opacity-70">
-              {answeredCount}/{questions.length} đã chọn
+              {answeredCount}/{questions.length} đã nhập
             </span>
           </div>
 
           <div className="grid grid-cols-6 sm:grid-cols-10 lg:grid-cols-5 gap-1.5 max-h-72 overflow-y-auto p-0.5">
             {questions.map((q, idx) => {
-              const isAnswered = Boolean(answers[q.id]);
+              const isAnswered = Boolean(answers[q.id]?.trim());
               const isFlagged = Boolean(flaggedIds[q.id]);
               const isCurrent = viewMode === 'single' && idx === currentIndex;
 
@@ -414,7 +471,7 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
                   className={`relative h-9 rounded-md border-[1.5px] border-[#141414] font-mono text-xs font-bold transition ${tileClass} ${
                     isCurrent ? 'ring-2 ring-[#141414] ring-offset-1 scale-105' : ''
                   }`}
-                  title={`Câu ${idx + 1}${isAnswered ? ' (Đã chọn)' : ' (Chưa chọn)'}${
+                  title={`Câu ${idx + 1}${isAnswered ? ' (Đã nhập)' : ' (Chưa nhập)'}${
                     isFlagged ? ' • Đã đánh dấu' : ''
                   }`}
                 >
@@ -431,11 +488,11 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
           <div className="flex flex-wrap gap-x-3 gap-y-1.5 font-mono text-[10px] opacity-80 pt-1 border-t border-dashed border-current/15">
             <span className="inline-flex items-center gap-1">
               <span className="w-3 h-3 rounded bg-[#CBEAD8] border border-[#141414]" />
-              Đã chọn ({answeredCount})
+              Đã nhập ({answeredCount})
             </span>
             <span className="inline-flex items-center gap-1">
               <span className="w-3 h-3 rounded bg-[#F8F6F1] border border-[#141414]" />
-              Chưa chọn ({unansweredCount})
+              Chưa nhập ({unansweredCount})
             </span>
             <span className="inline-flex items-center gap-1">
               <span className="w-3 h-3 rounded bg-[#F4C2D7] border border-[#141414]" />
@@ -471,7 +528,7 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
                 fullWidth
                 onClick={onGoToFirstUnanswered}
               >
-                Tới câu chưa làm đầu tiên ({unansweredCount})
+                Tới câu chưa nhập đầu tiên ({unansweredCount})
               </Button>
             )}
             <Button
@@ -481,7 +538,7 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
               leftIcon={<Send className="w-4 h-4 text-[#EFE078]" />}
               onClick={onRequestSubmit}
             >
-              Nộp bài &amp; Chấm điểm
+              Nộp bài &amp; Đối chiếu
             </Button>
           </div>
         </Card>
@@ -501,12 +558,8 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
         footer={
           <div className="flex flex-wrap justify-end gap-2 w-full">
             {unansweredCount > 0 && (
-              <Button
-                variant="yellow"
-                size="md"
-                onClick={onGoToFirstUnanswered}
-              >
-                Tới câu chưa làm
+              <Button variant="yellow" size="md" onClick={onGoToFirstUnanswered}>
+                Tới câu chưa nhập
               </Button>
             )}
             <Button variant="default" size="md" onClick={onCloseConfirmModal}>
@@ -526,7 +579,7 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
         <div className="space-y-3 text-sm">
           <div className="grid grid-cols-2 gap-2.5 font-mono text-xs">
             <div className="p-3 rounded-lg bg-[#CBEAD8]/60 border border-[#141414]/30">
-              <div className="opacity-70">Đã trả lời</div>
+              <div className="opacity-70">Đã nhập</div>
               <div className="text-lg font-bold">
                 {answeredCount} / {questions.length}
               </div>
@@ -536,7 +589,7 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
                 unansweredCount > 0 ? 'bg-[#F4C2D7]/70' : 'bg-[#F8F6F1]'
               }`}
             >
-              <div className="opacity-70">Chưa chọn</div>
+              <div className="opacity-70">Bỏ trống</div>
               <div className="text-lg font-bold">{unansweredCount} câu</div>
             </div>
           </div>
@@ -545,8 +598,8 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
             <div className="p-3 rounded-lg bg-[#F4C2D7]/45 border border-[#141414]/30 flex items-start gap-2 text-xs">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>
-                Bạn vẫn còn <strong>{unansweredCount} câu chưa chọn đáp án</strong>. Các câu
-                bỏ trống sẽ bị tính là chưa đúng khi chấm điểm.
+                Bạn vẫn còn <strong>{unansweredCount} câu chưa nhập đáp án</strong>. Các câu bỏ
+                trống sẽ bị tính là chưa đúng khi đối chiếu kết quả.
               </span>
             </div>
           )}
@@ -569,7 +622,7 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
             THOÁT PHÒNG THI
           </Badge>
         }
-        title="Rời khỏi bài thi đang làm?"
+        title="Rời khỏi bài kiểm tra đang làm?"
         footer={
           <>
             <Button variant="default" size="md" onClick={onCloseConfirmModal}>
@@ -582,7 +635,7 @@ export const ExamTakingView: React.FC<ExamTakingViewProps> = ({
         }
       >
         <p className="text-sm opacity-80 leading-relaxed">
-          Bạn đã chọn <strong>{answeredCount}/{questions.length}</strong> câu. Nếu bấm{' '}
+          Bạn đã nhập <strong>{answeredCount}/{questions.length}</strong> câu. Nếu bấm{' '}
           <strong>Thoát &amp; Hủy bài</strong>, bản nháp đang làm sẽ bị xóa và không được chấm
           điểm.
         </p>

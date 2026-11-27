@@ -16,44 +16,38 @@ export class BootstrapController {
   ) {}
 
   /**
-   * Single parallel bootstrap endpoint replacing separate startup requests
-   * with 9 parallel queries + 1 gzipped JSON payload.
+   * Single parallel bootstrap endpoint loading profile/notes/handwriting from App DB
+   * and separate lessons/vocab/exercises collections from HSK1..HSK6 databases.
    */
   @Get()
   async getBootstrap() {
-    const allModels = this.hskCollections.getAllModels();
-    const [profileDoc, perLevelDocs, notes, handwriting] = await Promise.all([
+    const allLevels = this.hskCollections.getAllLevels();
+
+    const [profileDoc, perLevelData, notes, handwriting] = await Promise.all([
       this.profileService.getOrCreate(),
       Promise.all(
-        allModels.map(async ({ level, model }) => {
-          const docs = await model
-            .find()
-            .select('-_id -__v')
-            .sort({ order: 1, createdAt: -1 })
-            .lean()
-            .exec();
-          return { level, docs };
+        allLevels.map(async (lv) => {
+          const [lessons, vocab, exercises] = await Promise.all([
+            lv.lessons.find().select('-_id -__v').sort({ order: 1, createdAt: -1 }).lean().exec(),
+            lv.vocab.find().select('-_id -__v').sort({ order: 1, createdAt: -1 }).lean().exec(),
+            lv.exercises.find().select('-_id -__v').sort({ order: 1, createdAt: -1 }).lean().exec(),
+          ]);
+          return { lessons, vocab, exercises };
         }),
       ),
       this.noteModel.find().select('-_id -__v').sort({ createdAt: -1 }).lean().exec(),
-      this.handwritingModel.find().select('-_id -__v').sort({ createdAt: -1 }).limit(30).lean().exec(),
+      this.handwritingModel
+        .find()
+        .select('-_id -__v')
+        .sort({ createdAt: -1 })
+        .limit(30)
+        .lean()
+        .exec(),
     ]);
 
-    const lessons: any[] = [];
-    const vocab: any[] = [];
-    const exercises: any[] = [];
-
-    for (const { docs } of perLevelDocs) {
-      for (const d of docs) {
-        if (d.category === 'lesson') {
-          lessons.push(d);
-        } else if (d.category === 'vocab') {
-          vocab.push(d);
-        } else if (d.category === 'exercise') {
-          exercises.push(d);
-        }
-      }
-    }
+    const lessons = perLevelData.flatMap((d) => d.lessons);
+    const vocab = perLevelData.flatMap((d) => d.vocab);
+    const exercises = perLevelData.flatMap((d) => d.exercises);
 
     const profileObj =
       typeof (profileDoc as any).toObject === 'function'

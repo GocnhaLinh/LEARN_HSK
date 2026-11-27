@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
+import { HskCollectionsService } from '../../database/hsk-collections.service';
 
 const MONGO_STATES: Record<number, string> = {
   0: 'disconnected',
@@ -11,21 +12,32 @@ const MONGO_STATES: Record<number, string> = {
 
 @Controller('health')
 export class HealthController {
-  constructor(@InjectConnection() private readonly connection: Connection) {}
+  constructor(
+    @InjectConnection() private readonly connection: Connection,
+    private readonly hskCollections: HskCollectionsService,
+  ) {}
 
   @Get()
   async check() {
     let collections: string[] = [];
+    let hskDatabases: Record<string, string[]> = {};
+
     if (this.connection.readyState === 1 && this.connection.db) {
-      const list = await this.connection.db.listCollections().toArray();
+      const [list, perLevel] = await Promise.all([
+        this.connection.db.listCollections().toArray(),
+        this.hskCollections.listHskDatabaseCollections(),
+      ]);
       collections = list.map((c) => c.name).sort();
+      hskDatabases = perLevel;
     }
+
     return {
       status: 'ok',
       service: 'HSK (QUEST) 3.0 API',
       mongodb: MONGO_STATES[this.connection.readyState] || 'unknown',
       database: this.connection.name || 'HSK',
       collections,
+      hskDatabases,
       timestamp: new Date().toISOString(),
     };
   }
