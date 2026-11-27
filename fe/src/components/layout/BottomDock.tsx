@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useExamImporterStore } from '@/features/exams/stores/exam-importer.store';
 import { preloadRoute } from '@/routes/lazyPages';
 
 const DOCK_ITEMS = [
@@ -23,6 +24,7 @@ const DOCK_ITEMS = [
 
 export const BottomDock: React.FC = () => {
   const { pathname } = useLocation();
+  const isUploading = useExamImporterStore((s) => s.busyStage !== 'idle');
   const activeIdx = Math.max(
     0,
     DOCK_ITEMS.findIndex((item) =>
@@ -51,14 +53,22 @@ export const BottomDock: React.FC = () => {
               key={to}
               to={to}
               end={end}
-              title={label}
+              aria-disabled={isUploading}
+              title={isUploading ? 'Đang tải đề lên, vui lòng chờ hoàn tất...' : label}
               aria-label={label}
-              onTouchStart={() => preloadRoute(to)}
-              onMouseEnter={() => preloadRoute(to)}
+              onClick={(e) => {
+                if (isUploading) e.preventDefault();
+              }}
+              onTouchStart={() => {
+                if (!isUploading) preloadRoute(to);
+              }}
+              onMouseEnter={() => {
+                if (!isUploading) preloadRoute(to);
+              }}
               className={({ isActive }) =>
                 `dock-btn relative z-10 flex flex-col items-center justify-center py-2.5 sm:py-1.5 px-0.5 rounded-xl text-[10px] font-mono transition-colors duration-200 ${
                   isActive ? 'text-[#111111] font-bold' : 'text-[#D6D3D1]'
-                }`
+                } ${isUploading ? 'opacity-45 cursor-not-allowed' : ''}`
               }
             >
               <Icon className="w-5 h-5 sm:w-4 sm:h-4 sm:mb-0.5" />

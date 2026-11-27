@@ -18,6 +18,7 @@ export interface ExamMediaAsset {
   kind: 'audio' | 'image';
   storage: MediaStorageProvider;
   publicId: string;
+  assetFolder?: string;
   url: string;
   resourceType: 'video' | 'image' | 'raw';
   questionNumber?: number;
@@ -83,6 +84,9 @@ export class Exam {
 
   @Prop({ required: true, default: 0 })
   totalQuestions: number;
+
+  @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
+  sectionCounts: Record<string, number>;
 
   @Prop({ required: true, default: 120 })
   totalDurationMin: number;

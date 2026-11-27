@@ -5,6 +5,7 @@ import {
   ChevronUp,
   ClipboardCheck,
   FileUp,
+  GraduationCap,
   Layers,
   Loader2,
   PenTool,
@@ -14,20 +15,20 @@ import {
   Sparkles,
   Trophy,
   Volume2,
-} from 'lucide-react';
-import React, { useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Badge, Button, Card } from '@/components/ui';
-import { useApp } from '@/context/AppContext';
-import { COURSES_META } from '@/data/defaults';
-import { getLocalCourseExamStats } from '@/features/exercises/utils/exam-utils';
-import { useWritingStore } from '@/features/writing/stores/writing.store';
-import { useScrollPast } from '@/hooks/useScrollPast';
-import { normalizeSearch } from '@/lib/search-utils';
-import { speakChinese } from '@/lib/speech-utils';
-import { ExercisesPage } from '@/routes/lazyPages';
-import { ExtractedExerciseRow, ExtractedVocabRow, VocabWord } from '@/types';
-import { parseCourseFile } from '@/utils/docParser';
+} from "lucide-react";
+import React, { useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Badge, Button, Card } from "@/components/ui";
+import { useApp } from "@/context/AppContext";
+import { COURSES_META } from "@/data/defaults";
+import { getLocalCourseExamStats } from "@/features/exercises/utils/exam-utils";
+import { useWritingStore } from "@/features/writing/stores/writing.store";
+import { useScrollPast } from "@/hooks/useScrollPast";
+import { normalizeSearch } from "@/lib/search-utils";
+import { speakChinese } from "@/lib/speech-utils";
+import { ExercisesPage } from "@/routes/lazyPages";
+import { ExtractedExerciseRow, ExtractedVocabRow, VocabWord } from "@/types";
+import { parseCourseFile } from "@/utils/docParser";
 
 export const CourseDetailPage: React.FC = () => {
   const { level: levelParam } = useParams();
@@ -48,12 +49,16 @@ export const CourseDetailPage: React.FC = () => {
   const scrolledDown = useScrollPast(180);
   const [loadingText, setLoadingText] = useState<string | null>(null);
 
-  const [extractedPreview, setExtractedPreview] = useState<ExtractedVocabRow[]>([]);
-  const [extractedExercises, setExtractedExercises] = useState<ExtractedExerciseRow[]>([]);
+  const [extractedPreview, setExtractedPreview] = useState<ExtractedVocabRow[]>(
+    [],
+  );
+  const [extractedExercises, setExtractedExercises] = useState<
+    ExtractedExerciseRow[]
+  >([]);
   const [autoGenerateExercises, setAutoGenerateExercises] = useState(true);
-  const [lessonBaseName, setLessonBaseName] = useState('');
+  const [lessonBaseName, setLessonBaseName] = useState("");
   const [splitSize, setSplitSize] = useState<number>(50);
-  const [extractSearch, setExtractSearch] = useState('');
+  const [extractSearch, setExtractSearch] = useState("");
 
   const courseLessons = useMemo(
     () => lessons.filter((l) => l.level === level),
@@ -75,7 +80,9 @@ export const CourseDetailPage: React.FC = () => {
   }, [courseWords]);
 
   // Collapse lessons past the first 2 by default so 26 lessons / 1,300 words don't flood the DOM
-  const [expandedLessons, setExpandedLessons] = useState<Record<string, boolean>>({});
+  const [expandedLessons, setExpandedLessons] = useState<
+    Record<string, boolean>
+  >({});
   const isLessonExpanded = (lessonId: string, idx: number) =>
     lessonId in expandedLessons ? expandedLessons[lessonId] : idx < 2;
   const toggleLessonExpanded = (lessonId: string, idx: number) => {
@@ -93,10 +100,12 @@ export const CourseDetailPage: React.FC = () => {
   };
 
   const masteredCount = useMemo(
-    () => courseWords.filter((w) => w.status === 'mastered').length,
+    () => courseWords.filter((w) => w.status === "mastered").length,
     [courseWords],
   );
-  const pct = courseWords.length ? Math.round((masteredCount / courseWords.length) * 100) : 0;
+  const pct = courseWords.length
+    ? Math.round((masteredCount / courseWords.length) * 100)
+    : 0;
 
   const openPreview = (
     items: ExtractedVocabRow[],
@@ -106,22 +115,24 @@ export const CourseDetailPage: React.FC = () => {
     setExtractedPreview(items);
     setExtractedExercises(docExercises);
     setLessonBaseName(defaultName);
-    setExtractSearch('');
+    setExtractSearch("");
     setSplitSize(items.length > 60 ? 50 : items.length > 25 ? 25 : 0);
   };
 
   const handleFile = async (file: File) => {
     setLoadingText(`Đang đọc file "${file.name}"...`);
     try {
-      const { words: extracted, exercises: docExercises } = await parseCourseFile(file, (msg) =>
-        setLoadingText(msg),
-      );
+      const { words: extracted, exercises: docExercises } =
+        await parseCourseFile(file, (msg) => setLoadingText(msg));
       setLoadingText(null);
       if (!extracted.length && !docExercises.length) {
-        showToast('Không tìm thấy từ vựng tiếng Trung hoặc bài tập nào trong file này.', 'pink');
+        showToast(
+          "Không tìm thấy từ vựng tiếng Trung hoặc bài tập nào trong file này.",
+          "pink",
+        );
         return;
       }
-      const baseName = file.name.replace(/\.(docx|pdf|txt)$/i, '');
+      const baseName = file.name.replace(/\.(docx|pdf|txt)$/i, "");
       openPreview(extracted, docExercises, baseName);
       const toastMsg =
         extracted.length > 0 && docExercises.length > 0
@@ -129,10 +140,13 @@ export const CourseDetailPage: React.FC = () => {
           : extracted.length > 0
             ? `Đã trích xuất thành công ${extracted.length} từ từ file!`
             : `Đã trích xuất thành công ${docExercises.length} câu bài tập từ file!`;
-      showToast(toastMsg, 'yellow');
+      showToast(toastMsg, "yellow");
     } catch (err: any) {
       setLoadingText(null);
-      showToast(`Lỗi đọc file: ${err?.message || 'Không thể phân tích tài liệu.'}`, 'pink');
+      showToast(
+        `Lỗi đọc file: ${err?.message || "Không thể phân tích tài liệu."}`,
+        "pink",
+      );
     }
   };
 
@@ -157,12 +171,18 @@ export const CourseDetailPage: React.FC = () => {
   };
 
   const toggleAllExtracted = (checked: boolean) => {
-    setExtractedPreview((prev) => prev.map((r) => ({ ...r, selected: checked })));
-    setExtractedExercises((prev) => prev.map((r) => ({ ...r, selected: checked })));
+    setExtractedPreview((prev) =>
+      prev.map((r) => ({ ...r, selected: checked })),
+    );
+    setExtractedExercises((prev) =>
+      prev.map((r) => ({ ...r, selected: checked })),
+    );
   };
 
   const selectedCount = extractedPreview.filter((i) => i.selected).length;
-  const selectedExerciseCount = extractedExercises.filter((e) => e.selected !== false).length;
+  const selectedExerciseCount = extractedExercises.filter(
+    (e) => e.selected !== false,
+  ).length;
   const bilingualExampleCount = useMemo(
     () =>
       extractedPreview.filter(
@@ -199,14 +219,17 @@ export const CourseDetailPage: React.FC = () => {
     const picked = extractedPreview.filter((r) => r.selected);
     const pickedEx = extractedExercises.filter((e) => e.selected !== false);
     if (!picked.length && !pickedEx.length) {
-      showToast('Hãy chọn ít nhất 1 từ vựng hoặc 1 câu bài tập để lưu vào khóa học!', 'pink');
+      showToast(
+        "Hãy chọn ít nhất 1 từ vựng hoặc 1 câu bài tập để lưu vào khóa học!",
+        "pink",
+      );
       return;
     }
     const baseTitle =
       lessonBaseName.trim() ||
       (picked.length
-        ? `Giáo trình HSK ${level} (${new Date().toLocaleDateString('vi-VN')})`
-        : `Bộ bài tập HSK ${level} (${new Date().toLocaleDateString('vi-VN')})`);
+        ? `Giáo trình HSK ${level} (${new Date().toLocaleDateString("vi-VN")})`
+        : `Bộ bài tập HSK ${level} (${new Date().toLocaleDateString("vi-VN")})`);
     const saved = await bulkImportWords({
       level,
       baseTitle,
@@ -231,10 +254,10 @@ export const CourseDetailPage: React.FC = () => {
     });
     if (chars.length) {
       setWriteQuickPool(chars.slice(0, 15));
-      showToast('Đã nạp các chữ Hán trong bài vào bảng luyện viết!', 'yellow');
+      showToast("Đã nạp các chữ Hán trong bài vào bảng luyện viết!", "yellow");
       navigate(`/writing/hanzi/${encodeURIComponent(chars[0])}`);
     } else {
-      navigate('/writing/hanzi');
+      navigate("/writing/hanzi");
     }
   };
 
@@ -245,7 +268,7 @@ export const CourseDetailPage: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => navigate('/courses')}
+            onClick={() => navigate("/courses")}
             className="t-btn px-3.5 py-1.5 bg-white text-[#111111] font-mono text-xs font-bold flex items-center gap-1.5 hover:bg-[#EFE078]"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -264,7 +287,9 @@ export const CourseDetailPage: React.FC = () => {
             <h2 className="font-serif font-bold text-3xl">
               {meta.emoji} {meta.title}
             </h2>
-            <p className="text-xs sm:text-sm opacity-75 mt-1">{meta.subtitle}</p>
+            <p className="text-xs sm:text-sm opacity-75 mt-1">
+              {meta.subtitle}
+            </p>
           </div>
           <div className="w-full md:w-64 shrink-0">
             <div className="flex justify-between font-mono text-[11px] font-bold mb-1">
@@ -294,15 +319,20 @@ export const CourseDetailPage: React.FC = () => {
           if (file) {
             handleFile(file);
             window.setTimeout(() => {
-              previewCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              previewCardRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "nearest",
+              });
             }, 60);
           }
-          e.target.value = '';
+          e.target.value = "";
         }}
       />
 
       {/* Inline parsing indicator & extracted preview (supports vocab+examples AND exercise-only files) */}
-      {(loadingText || extractedPreview.length > 0 || extractedExercises.length > 0) && (
+      {(loadingText ||
+        extractedPreview.length > 0 ||
+        extractedExercises.length > 0) && (
         <div ref={previewCardRef} className="t-card p-5 sm:p-6 space-y-4">
           {loadingText && (
             <div className="p-4 rounded-lg bg-[#EFE078]/60 border border-[#141414] font-mono text-xs font-bold flex items-center justify-center gap-2">
@@ -313,23 +343,32 @@ export const CourseDetailPage: React.FC = () => {
 
           {(extractedPreview.length > 0 || extractedExercises.length > 0) && (
             <div className="space-y-4">
-              {extractedPreview.length === 0 && extractedExercises.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="pink" size="sm">
-                    FILE BÀI TẬP RIÊNG • {selectedExerciseCount} câu tự nhập (0 từ vựng)
-                  </Badge>
-                  <span className="font-mono text-[11px] opacity-75">
-                    Sẽ lưu trực tiếp vào <code>HSK{level}.exercises</code> (có thể chỉnh sửa câu hỏi &amp; đáp án trước khi lưu)
-                  </span>
-                </div>
-              )}
+              {extractedPreview.length === 0 &&
+                extractedExercises.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="pink" size="sm">
+                      FILE BÀI TẬP RIÊNG • {selectedExerciseCount} câu tự nhập
+                      (0 từ vựng)
+                    </Badge>
+                    <span className="font-mono text-[11px] opacity-75">
+                      Sẽ lưu trực tiếp vào <code>HSK{level}.exercises</code> (có
+                      thể chỉnh sửa câu hỏi &amp; đáp án trước khi lưu)
+                    </span>
+                  </div>
+                )}
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                <div className={extractedPreview.length > 0 ? 'md:col-span-5' : 'md:col-span-8'}>
+                <div
+                  className={
+                    extractedPreview.length > 0
+                      ? "md:col-span-5"
+                      : "md:col-span-8"
+                  }
+                >
                   <label className="font-mono text-[11px] font-bold uppercase block mb-1">
                     {extractedPreview.length > 0
-                      ? 'Tên bộ bài học nhập từ file:'
-                      : 'Tên bộ bài tập nhập từ file:'}
+                      ? "Tên bộ bài học nhập từ file:"
+                      : "Tên bộ bài tập nhập từ file:"}
                   </label>
                   <input
                     type="text"
@@ -338,8 +377,8 @@ export const CourseDetailPage: React.FC = () => {
                     className="w-full px-3 py-2 bg-white border-[1.5px] border-[#141414] rounded text-sm font-bold outline-none"
                     placeholder={
                       extractedPreview.length > 0
-                        ? 'VD: NEW HSK5 3.0'
-                        : 'VD: Bài tập dịch câu HSK 5 — Đề 1'
+                        ? "VD: NEW HSK5 3.0"
+                        : "VD: Bài tập dịch câu HSK 5 — Đề 1"
                     }
                   />
                 </div>
@@ -391,18 +430,21 @@ export const CourseDetailPage: React.FC = () => {
                 <>
                   <label className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#CBEAD8]/60 border border-[#141414] cursor-pointer select-none">
                     <span className="font-mono text-xs font-bold text-[#111111]">
-                      Chuyển các câu ví dụ thành bài tập tự nhập tiếng Trung (chỉ hiện tiếng Việt, ẩn chữ Hán khi làm bài)
+                      Chuyển các câu ví dụ thành bài tập tự nhập tiếng Trung
+                      (chỉ hiện tiếng Việt, ẩn chữ Hán khi làm bài)
                       {bilingualExampleCount > 0
                         ? ` — phát hiện ${bilingualExampleCount} câu ví dụ song ngữ`
-                        : ''}
+                        : ""}
                       {selectedExerciseCount > 0
                         ? ` (+ ${selectedExerciseCount} câu bài tập trích riêng)`
-                        : ''}
+                        : ""}
                     </span>
                     <input
                       type="checkbox"
                       checked={autoGenerateExercises}
-                      onChange={(e) => setAutoGenerateExercises(e.target.checked)}
+                      onChange={(e) =>
+                        setAutoGenerateExercises(e.target.checked)
+                      }
                       className="w-4 h-4 accent-[#111111] shrink-0"
                     />
                   </label>
@@ -420,12 +462,21 @@ export const CourseDetailPage: React.FC = () => {
 
                   <div className="max-h-72 overflow-y-auto border-[1.5px] border-[#141414] rounded-lg bg-white divide-y divide-stone-200">
                     {visiblePreview.map(({ row, idx }) => (
-                      <div key={`${row.hanzi}_${idx}`} className="p-2.5 grid grid-cols-12 gap-2 items-center text-xs">
+                      <div
+                        key={`${row.hanzi}_${idx}`}
+                        className="p-2.5 grid grid-cols-12 gap-2 items-center text-xs"
+                      >
                         <div className="col-span-1 flex justify-center">
                           <input
                             type="checkbox"
                             checked={row.selected}
-                            onChange={(e) => updateExtractedField(idx, 'selected', e.target.checked)}
+                            onChange={(e) =>
+                              updateExtractedField(
+                                idx,
+                                "selected",
+                                e.target.checked,
+                              )
+                            }
                             className="w-4 h-4 accent-[#111111]"
                           />
                         </div>
@@ -436,7 +487,13 @@ export const CourseDetailPage: React.FC = () => {
                           <input
                             type="text"
                             value={row.pinyin}
-                            onChange={(e) => updateExtractedField(idx, 'pinyin', e.target.value)}
+                            onChange={(e) =>
+                              updateExtractedField(
+                                idx,
+                                "pinyin",
+                                e.target.value,
+                              )
+                            }
                             placeholder="Pinyin..."
                             className="w-full px-2 py-1 bg-[#F8F6F1] border border-[#141414]/30 rounded font-mono text-xs outline-none focus:border-[#141414]"
                           />
@@ -445,14 +502,20 @@ export const CourseDetailPage: React.FC = () => {
                           <input
                             type="text"
                             value={row.meaning}
-                            onChange={(e) => updateExtractedField(idx, 'meaning', e.target.value)}
+                            onChange={(e) =>
+                              updateExtractedField(
+                                idx,
+                                "meaning",
+                                e.target.value,
+                              )
+                            }
                             placeholder="Nghĩa tiếng Việt..."
                             className="w-full px-2 py-1 bg-[#F8F6F1] border border-[#141414]/30 rounded text-xs outline-none focus:border-[#141414]"
                           />
                           {row.exampleZh && (
                             <div className="font-serifcn text-[11px] opacity-75 truncate">
                               VD: {row.exampleZh}
-                              {row.exampleVi ? ` — ${row.exampleVi}` : ''}
+                              {row.exampleVi ? ` — ${row.exampleVi}` : ""}
                             </div>
                           )}
                         </div>
@@ -460,8 +523,10 @@ export const CourseDetailPage: React.FC = () => {
                     ))}
                     {filteredPreview.length > MAX_PREVIEW_ROWS && (
                       <div className="p-3 text-center font-mono text-[11px] bg-[#EFE078]/40 font-bold">
-                        Đang hiển thị {MAX_PREVIEW_ROWS} / {filteredPreview.length} từ để mượt trình duyệt — toàn bộ{' '}
-                        {selectedCount} từ được chọn sẽ được chèn đầy đủ vào MongoDB!
+                        Đang hiển thị {MAX_PREVIEW_ROWS} /{" "}
+                        {filteredPreview.length} từ để mượt trình duyệt — toàn
+                        bộ {selectedCount} từ được chọn sẽ được chèn đầy đủ vào
+                        MongoDB!
                       </div>
                     )}
                   </div>
@@ -473,21 +538,30 @@ export const CourseDetailPage: React.FC = () => {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[11px] font-bold uppercase opacity-75">
-                      Danh sách bài tập trích từ file ({selectedExerciseCount}/{extractedExercises.length} câu)
+                      Danh sách bài tập trích từ file ({selectedExerciseCount}/
+                      {extractedExercises.length} câu)
                     </span>
                     <span className="font-mono text-[10px] opacity-60">
-                      Cột trái: Đề bài hiển thị • Cột phải: Đáp án đối chiếu (để trống nếu không có)
+                      Cột trái: Đề bài hiển thị • Cột phải: Đáp án đối chiếu (để
+                      trống nếu không có)
                     </span>
                   </div>
                   <div className="max-h-72 overflow-y-auto border-[1.5px] border-[#141414] rounded-lg bg-white divide-y divide-stone-200">
                     {visibleExercisesPreview.map((ex, idx) => (
-                      <div key={`ex_prev_${idx}`} className="p-2.5 grid grid-cols-12 gap-2 items-center text-xs">
+                      <div
+                        key={`ex_prev_${idx}`}
+                        className="p-2.5 grid grid-cols-12 gap-2 items-center text-xs"
+                      >
                         <div className="col-span-1 flex justify-center">
                           <input
                             type="checkbox"
                             checked={ex.selected !== false}
                             onChange={(e) =>
-                              updateExtractedExerciseField(idx, 'selected', e.target.checked)
+                              updateExtractedExerciseField(
+                                idx,
+                                "selected",
+                                e.target.checked,
+                              )
                             }
                             className="w-4 h-4 accent-[#111111]"
                           />
@@ -497,7 +571,11 @@ export const CourseDetailPage: React.FC = () => {
                             type="text"
                             value={ex.question}
                             onChange={(e) =>
-                              updateExtractedExerciseField(idx, 'question', e.target.value)
+                              updateExtractedExerciseField(
+                                idx,
+                                "question",
+                                e.target.value,
+                              )
                             }
                             placeholder="Nội dung đề bài..."
                             className="w-full px-2 py-1.5 bg-[#F8F6F1] border border-[#141414]/30 rounded text-xs outline-none focus:border-[#141414]"
@@ -508,7 +586,11 @@ export const CourseDetailPage: React.FC = () => {
                             type="text"
                             value={ex.correctAnswer}
                             onChange={(e) =>
-                              updateExtractedExerciseField(idx, 'correctAnswer', e.target.value)
+                              updateExtractedExerciseField(
+                                idx,
+                                "correctAnswer",
+                                e.target.value,
+                              )
                             }
                             placeholder="Đáp án đối chiếu (tiếng Trung / kết quả)..."
                             className="w-full px-2 py-1.5 bg-[#CBEAD8]/30 border border-[#141414]/30 rounded font-serifcn text-xs outline-none focus:border-[#141414]"
@@ -518,8 +600,10 @@ export const CourseDetailPage: React.FC = () => {
                     ))}
                     {extractedExercises.length > MAX_PREVIEW_ROWS && (
                       <div className="p-3 text-center font-mono text-[11px] bg-[#EFE078]/40 font-bold">
-                        Đang hiển thị {MAX_PREVIEW_ROWS} / {extractedExercises.length} câu — toàn bộ{' '}
-                        {selectedExerciseCount} câu được chọn sẽ được lưu đầy đủ vào MongoDB!
+                        Đang hiển thị {MAX_PREVIEW_ROWS} /{" "}
+                        {extractedExercises.length} câu — toàn bộ{" "}
+                        {selectedExerciseCount} câu được chọn sẽ được lưu đầy đủ
+                        vào MongoDB!
                       </div>
                     )}
                   </div>
@@ -531,9 +615,9 @@ export const CourseDetailPage: React.FC = () => {
                   {selectedCount > 0
                     ? `Đang chọn ${selectedCount} từ → ${lessonCountPreview} bài học${
                         autoGenerateExercises
-                          ? ` + ${bilingualExampleCount || 'tự sinh'} bài tập tự nhập`
-                          : ''
-                      }${selectedExerciseCount > 0 ? ` + ${selectedExerciseCount} câu từ file` : ''}`
+                          ? ` + ${bilingualExampleCount || "tự sinh"} bài tập tự nhập`
+                          : ""
+                      }${selectedExerciseCount > 0 ? ` + ${selectedExerciseCount} câu từ file` : ""}`
                     : `Đang chọn ${selectedExerciseCount} câu bài tập tự nhập (không kèm từ vựng)`}
                 </span>
                 <button
@@ -574,12 +658,14 @@ export const CourseDetailPage: React.FC = () => {
                 ? `Rút đề ngẫu nhiên (10 / 20 / 30 / 50 câu hoặc toàn bộ ${courseExercises.length} câu) theo bài học & dạng bài. Khi vào bài thi sẽ ẩn thanh điều hướng để tập trung tối đa và chỉ chấm điểm sau khi bấm Nộp bài.`
                 : `Chưa có bài tập nào trong ${meta.code}. Hãy tải giáo trình (.PDF / .DOCX / .TXT) để tự động sinh ngân hàng câu hỏi.`}
             </p>
-            {(localExamStats.attemptCount > 0 || localExamStats.wrongCount > 0) && (
+            {(localExamStats.attemptCount > 0 ||
+              localExamStats.wrongCount > 0) && (
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                 {localExamStats.bestScore10 !== null && (
                   <Badge variant="yellow" size="xs">
                     <Trophy className="w-3 h-3" />
-                    Cao nhất: {localExamStats.bestScore10.toFixed(1)}/10 ({localExamStats.attemptCount} lượt)
+                    Cao nhất: {localExamStats.bestScore10.toFixed(1)}/10 (
+                    {localExamStats.attemptCount} lượt)
                   </Badge>
                 )}
                 {localExamStats.wrongCount > 0 && (
@@ -594,6 +680,17 @@ export const CourseDetailPage: React.FC = () => {
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <Button
+              variant="yellow"
+              size="lg"
+              onMouseEnter={() => void ExercisesPage.preload()}
+              leftIcon={<GraduationCap className="w-4 h-4" />}
+              onClick={() =>
+                navigate(`/courses/${level}/exercises?tab=official&import=1`)
+              }
+            >
+              Đề thi chuẩn HSK (PDF + MP3)
+            </Button>
+            <Button
               variant="primary"
               size="lg"
               disabled={courseExercises.length === 0}
@@ -601,7 +698,7 @@ export const CourseDetailPage: React.FC = () => {
               rightIcon={<ArrowRight className="w-4 h-4 text-[#EFE078]" />}
               onClick={() => navigate(`/courses/${level}/exercises`)}
             >
-              Vào phòng Thi thử ({courseExercises.length} câu)
+              Luyện dịch ({courseExercises.length} câu)
             </Button>
           </div>
         </div>
@@ -639,7 +736,9 @@ export const CourseDetailPage: React.FC = () => {
         {!courseLessons.length ? (
           <div className="t-card p-8 text-center space-y-3">
             <p className="font-mono text-xs opacity-70">
-              Chưa có bài học nào trong {meta.code}. Hãy tải file <code>.PDF / .DOCX / .TXT</code> qua Smart Importer để tự động chia bài học!
+              Chưa có bài học nào trong {meta.code}. Hãy tải file{" "}
+              <code>.PDF / .DOCX / .TXT</code> qua Smart Importer để tự động
+              chia bài học!
             </p>
             <button
               type="button"
@@ -659,7 +758,9 @@ export const CourseDetailPage: React.FC = () => {
                 <div key={lesson.id} className="t-card p-4 sm:p-5 space-y-4">
                   <div
                     className={`flex flex-col md:flex-row md:items-center justify-between gap-3 ${
-                      expanded ? 'pb-3 border-b border-dashed border-current/20' : ''
+                      expanded
+                        ? "pb-3 border-b border-dashed border-current/20"
+                        : ""
                     }`}
                   >
                     <button
@@ -681,13 +782,17 @@ export const CourseDetailPage: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-xs opacity-75 mt-1">
-                        {lesson.desc || 'Danh sách từ vựng trong bài học.'}
+                        {lesson.desc || "Danh sách từ vựng trong bài học."}
                       </p>
                     </button>
                     <div className="flex flex-wrap items-center gap-2 shrink-0 font-mono text-xs font-bold">
                       <button
                         type="button"
-                        onClick={() => navigate(`/flashcard/lesson/${encodeURIComponent(lesson.id)}`)}
+                        onClick={() =>
+                          navigate(
+                            `/flashcard/lesson/${encodeURIComponent(lesson.id)}`,
+                          )
+                        }
                         className="t-btn-black px-3.5 py-2 flex items-center gap-1.5"
                       >
                         <Layers className="w-3.5 h-3.5" />
@@ -705,14 +810,18 @@ export const CourseDetailPage: React.FC = () => {
                         type="button"
                         onClick={() => toggleLessonExpanded(lesson.id, idx)}
                         className="t-btn px-2.5 py-2 bg-white text-[#111111] flex items-center gap-1 hover:bg-[#F4C2D7]"
-                        title={expanded ? 'Thu gọn danh sách từ' : 'Xem danh sách từ'}
+                        title={
+                          expanded ? "Thu gọn danh sách từ" : "Xem danh sách từ"
+                        }
                       >
                         {expanded ? (
                           <ChevronUp className="w-4 h-4" />
                         ) : (
                           <ChevronDown className="w-4 h-4" />
                         )}
-                        <span className="hidden sm:inline">{expanded ? 'Thu gọn' : 'Xem từ'}</span>
+                        <span className="hidden sm:inline">
+                          {expanded ? "Thu gọn" : "Xem từ"}
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -734,14 +843,20 @@ export const CourseDetailPage: React.FC = () => {
                                   {w.pinyin}
                                 </span>
                               </div>
-                              <div className="text-xs font-semibold mt-0.5 truncate">{w.meaning}</div>
+                              <div className="text-xs font-semibold mt-0.5 truncate">
+                                {w.meaning}
+                              </div>
                               <div className="font-mono text-[10px] opacity-60 mt-0.5">
-                                {w.hanviet || '—'}
+                                {w.hanviet || "—"}
                               </div>
                             </div>
                             <button
                               type="button"
-                              onClick={() => speakChinese(w.hanzi, 0.92, (m) => showToast(m, 'pink'))}
+                              onClick={() =>
+                                speakChinese(w.hanzi, 0.92, (m) =>
+                                  showToast(m, "pink"),
+                                )
+                              }
                               className="t-btn-black w-7 h-7 flex items-center justify-center shrink-0"
                               title="Nghe phát âm"
                             >
@@ -768,7 +883,10 @@ export const CourseDetailPage: React.FC = () => {
         type="button"
         onClick={() => {
           if (extractedPreview.length > 0 || extractedExercises.length > 0) {
-            previewCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            previewCardRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
           } else {
             fileInputRef.current?.click();
           }
@@ -776,7 +894,7 @@ export const CourseDetailPage: React.FC = () => {
         title={`Tải giáo trình hoặc file bài tập .PDF / .DOCX / .TXT vào ${meta.code}`}
         aria-label={`Tải tài liệu vào ${meta.code}`}
         className={`t-btn-black fixed right-4 sm:right-6 z-40 h-11 sm:h-12 px-3.5 sm:px-4 !rounded-full flex items-center gap-2 font-mono text-xs font-bold transition-all duration-300 ${
-          scrolledDown ? 'bottom-[152px] xl:bottom-20' : 'bottom-24 xl:bottom-6'
+          scrolledDown ? "bottom-[152px] xl:bottom-20" : "bottom-24 xl:bottom-6"
         }`}
       >
         {loadingText ? (
@@ -784,16 +902,11 @@ export const CourseDetailPage: React.FC = () => {
         ) : (
           <FileUp className="w-4 h-4 text-[#EFE078] shrink-0" />
         )}
-        <span className="hidden sm:inline whitespace-nowrap">
-          {extractedPreview.length > 0
-            ? `Xem ${selectedCount} từ đã đọc`
-            : extractedExercises.length > 0
-              ? `Xem ${selectedExerciseCount} bài tập đã đọc`
-              : 'Tải giáo trình / bài tập'}
-        </span>
         {(extractedPreview.length > 0 || extractedExercises.length > 0) && (
           <span className="sm:hidden px-1.5 py-0.5 bg-[#EFE078] text-[#111111] rounded-full text-[10px] font-bold">
-            {extractedPreview.length > 0 ? selectedCount : selectedExerciseCount}
+            {extractedPreview.length > 0
+              ? selectedCount
+              : selectedExerciseCount}
           </span>
         )}
       </button>
