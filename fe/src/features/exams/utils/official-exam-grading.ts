@@ -1,110 +1,17 @@
-import {
-  type DiffCharSegment,
-  diffTypedAnswer,
-  normalizeTypedAnswer,
-} from '@/features/exercises/utils/exam-utils';
 import type {
-  ExamQuestionFormat,
   ExamQuestionItem,
   ExamSectionKey,
+  FlattenedExamQuestion,
+  GradedOfficialQuestion,
+  LocalOfficialExamAttempt,
+  LocalOfficialExamDraft,
   OfficialExam,
-} from '../api/exams.api';
-
-export type OfficialExamMode = 'full' | 'listening' | 'reading' | 'writing';
-
-export interface FlattenedExamQuestion {
-  sectionKey: ExamSectionKey;
-  sectionTitle: string;
-  partNumber: number;
-  partTitle: string;
-  partInstruction?: string;
-  questionFormat: ExamQuestionFormat;
-  groupId: string;
-  groupRangeLabel?: string;
-  groupPassage?: string;
-  groupTranscript?: string;
-  question: ExamQuestionItem;
-}
-
-export interface GradedOfficialQuestion {
-  flat: FlattenedExamQuestion;
-  userAnswer: string;
-  isMcq: boolean;
-  isSelfCheck: boolean;
-  isCorrect: boolean;
-  isUnanswered: boolean;
-  /** Keyword usage breakdown for Q99 */
-  matchedKeywords?: string[];
-  missingKeywords?: string[];
-  /** Chinese char count for essay questions Q99-100 */
-  hanziCount?: number;
-  /** Character-level LCS diff for incorrect Q91-98 reorder answers */
-  diffSegments?: DiffCharSegment[];
-}
-
-export interface SectionScoreBreakdown {
-  key: ExamSectionKey;
-  title: string;
-  totalQuestions: number;
-  autoGradedTotal: number;
-  correctCount: number;
-  wrongCount: number;
-  unansweredCount: number;
-  essayCount: number;
-  /** Scaled 0–100 HSK section score (essays contribute via completion + keyword heuristic) */
-  score100: number;
-}
-
-export interface OfficialExamGradeResult {
-  examId: string;
-  examTitle: string;
-  examCode: string;
-  mode: OfficialExamMode;
-  totalQuestions: number;
-  answeredCount: number;
-  autoCorrectCount: number;
-  autoTotalCount: number;
-  essayCount: number;
-  /** Standard HSK 300-point scale when full exam; proportional 100-point per active section */
-  totalScore: number;
-  maxScore: number;
-  passScore: number;
-  passed: boolean;
-  sections: SectionScoreBreakdown[];
-  items: GradedOfficialQuestion[];
-}
-
-export interface LocalOfficialExamDraft {
-  examId: string;
-  level: number;
-  mode: OfficialExamMode;
-  strictAudio: boolean;
-  activeSection: ExamSectionKey;
-  answers: Record<number, string>;
-  flagged: Record<number, boolean>;
-  elapsedSeconds: number;
-  remainingSeconds: number | null;
-  audioTimeSec: number;
-  updatedAt: string;
-}
-
-export interface LocalOfficialExamAttempt {
-  id: string;
-  examId: string;
-  examCode: string;
-  examTitle: string;
-  level: number;
-  mode: OfficialExamMode;
-  totalScore: number;
-  maxScore: number;
-  passed: boolean;
-  autoCorrectCount: number;
-  autoTotalCount: number;
-  sectionScores: Record<string, number>;
-  elapsedSeconds: number;
-  completedAt: string;
-  answers: Record<number, string>;
-}
+  OfficialExamGradeResult,
+  OfficialExamMode,
+  SectionScoreBreakdown,
+} from '@/features/exams/types';
+import type { DiffCharSegment } from '@/features/exercises/types';
+import { diffTypedAnswer, normalizeTypedAnswer } from '@/features/exercises/utils/exam-utils';
 
 const OFFICIAL_HISTORY_KEY = 'hsk_official_exam_history_v1';
 const OFFICIAL_DRAFT_KEY = 'hsk_official_exam_draft_v1';

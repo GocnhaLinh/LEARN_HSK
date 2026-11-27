@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useExamLockStore } from '@/features/exercises/stores/exam-lock.store';
+import type {
+  ActiveDraftSummary,
+  ExamConfig,
+  ExamConfirmModal,
+  ExamGradeSummary,
+  ExamPhase,
+  ExamQuestion,
+  ExamViewMode,
+  LocalExamAttempt,
+  LocalExamDraft,
+  ReviewFilter,
+} from '@/features/exercises/types';
 import {
   appendExamHistory,
   appendSeenQuestionIds,
@@ -9,22 +21,14 @@ import {
   clearExamHistory,
   clearSeenQuestionIds,
   clearWrongQuestionIds,
-  ExamConfig,
-  ExamGradeSummary,
-  ExamPhase,
-  ExamQuestion,
-  ExamViewMode,
   filterExercises,
   gradeExam,
-  LocalExamAttempt,
-  LocalExamDraft,
   readExamDraft,
   readExamHistory,
   readSeenQuestionIds,
   readWrongQuestionIds,
   rebuildExamFromDraft,
   rebuildGradeFromAttempt,
-  ReviewFilter,
   saveExamDraft,
   updateWrongQuestionIds,
 } from '@/features/exercises/utils/exam-utils';
@@ -32,17 +36,6 @@ import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { spawnConfetti } from '@/lib/fx-utils';
 import { useToastStore } from '@/stores/toast.store';
 import type { ExerciseItem } from '@/types';
-
-export type ExamConfirmModal = null | 'submit' | 'exit';
-
-export interface ActiveDraftSummary {
-  examLabel: string;
-  totalQuestions: number;
-  answeredCount: number;
-  elapsedSeconds: number;
-  remainingSeconds: number | null;
-  updatedAt: string;
-}
 
 const DEFAULT_CONFIG: ExamConfig = {
   questionCount: 20,

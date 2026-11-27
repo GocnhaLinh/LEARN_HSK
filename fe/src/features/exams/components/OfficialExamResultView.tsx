@@ -15,11 +15,14 @@ import { Badge, Button, Card } from '@/components/ui';
 import { formatTimer } from '@/features/exercises/utils/exam-utils';
 import { speakChinese } from '@/lib/speech-utils';
 import type { CourseMeta } from '@/types';
-import type { ExamSectionKey, OfficialExam } from '../api/exams.api';
+import type {
+  ExamSectionKey,
+  OfficialExam,
+  OfficialExamGradeResult,
+} from '@/features/exams/types';
 import {
   getOptionTextByLetter,
   MODE_LABELS,
-  type OfficialExamGradeResult,
   SECTION_LABELS,
 } from '../utils/official-exam-grading';
 

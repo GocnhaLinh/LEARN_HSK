@@ -16,7 +16,11 @@ import React, { useEffect, useState } from 'react';
 import { Badge, Button, Card, EmptyState, Modal } from '@/components/ui';
 import { formatAttemptDate, formatTimer } from '@/features/exercises/utils/exam-utils';
 import type { CourseMeta } from '@/types';
-import type { OfficialExamSummary } from '../api/exams.api';
+import type {
+  LocalOfficialExamAttempt,
+  OfficialExamMode,
+  OfficialExamSummary,
+} from '@/features/exams/types';
 import {
   useDeleteExamMutation,
   useExamDetail,
@@ -28,11 +32,7 @@ import {
   isDraftExpired,
   useExamImporterStore,
 } from '../stores/exam-importer.store';
-import {
-  type LocalOfficialExamAttempt,
-  MODE_LABELS,
-  type OfficialExamMode,
-} from '../utils/official-exam-grading';
+import { MODE_LABELS } from '../utils/official-exam-grading';
 import { ExamBundleImporter } from './ExamBundleImporter';
 import { OfficialExamResultView } from './OfficialExamResultView';
 import { OfficialExamTakingView } from './OfficialExamTakingView';

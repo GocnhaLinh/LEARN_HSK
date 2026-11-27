@@ -1,10 +1,6 @@
+import type { CreateHandwritingPayload } from "@/features/writing/types";
 import apiClient from "@/lib/api/client";
 import type { HandwritingItem, UserProfile } from "@/types";
-
-export interface CreateHandwritingPayload {
-  img: string;
-  caption?: string;
-}
 
 export const handwritingApi = {
   getHandwriting: async (): Promise<HandwritingItem[]> => {

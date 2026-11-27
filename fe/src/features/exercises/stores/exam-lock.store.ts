@@ -1,9 +1,5 @@
 import { create } from 'zustand';
-
-interface ExamLockState {
-  isExamActive: boolean;
-  setExamActive: (active: boolean) => void;
-}
+import type { ExamLockState } from '@/features/exercises/types';
 
 /**
  * Global UI-only lock flag for Mock Exam Focus Mode.

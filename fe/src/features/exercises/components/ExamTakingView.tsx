@@ -16,10 +16,8 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 import { Badge, Button, Card, Modal, ProgressBar, Textarea } from '@/components/ui';
-import type { ExamConfirmModal } from '@/features/exercises/hooks/useExamSession';
+import type { ExamConfirmModal, ExamQuestion, ExamViewMode } from '@/features/exercises/types';
 import {
-  ExamQuestion,
-  ExamViewMode,
   formatTimer,
   getExerciseTypeLabel,
   hasSelectableOptions,

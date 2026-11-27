@@ -1,20 +1,13 @@
 import { create } from "zustand";
 import type {
   ClassifiedExamFiles,
+  ExamImporterDraft,
+  ExamImporterStoreState,
   ParsedExamBundleResult,
-} from "../utils/hsk-exam-parser";
-
-export type ImporterBusyStage = "idle" | "parsing" | "uploading";
+} from "@/features/exams/types";
 
 /** Draft cache lifetime: 15 minutes of inactivity */
 export const IMPORTER_DRAFT_TTL_MS = 15 * 60 * 1000;
-
-export interface ExamImporterDraft {
-  files: ClassifiedExamFiles;
-  parsed: ParsedExamBundleResult | null;
-  isOpen: boolean;
-  updatedAt: number;
-}
 
 const EMPTY_FILES: ClassifiedExamFiles = {
   examPdf: null,
@@ -72,38 +65,6 @@ export function getRemainingDraftMinutes(
     IMPORTER_DRAFT_TTL_MS - (now - draft.updatedAt),
   );
   return Math.max(1, Math.ceil(remainingMs / 60_000));
-}
-
-interface ExamImporterStoreState {
-  draftsByLevel: Record<number, ExamImporterDraft>;
-  busyStage: ImporterBusyStage;
-  busyLevel: number | null;
-  busyMessage: string;
-  uploadPct: number;
-
-  setOpen: (level: number, isOpen: boolean) => void;
-  setFiles: (
-    level: number,
-    updater:
-      | ClassifiedExamFiles
-      | ((prev: ClassifiedExamFiles) => ClassifiedExamFiles),
-  ) => void;
-  setParsed: (
-    level: number,
-    updater:
-      | ParsedExamBundleResult
-      | null
-      | ((
-          prev: ParsedExamBundleResult | null,
-        ) => ParsedExamBundleResult | null),
-    revokeOld?: boolean,
-  ) => void;
-  clearDraft: (level: number) => void;
-  pruneExpired: (level: number) => void;
-  setBusy: (
-    stage: ImporterBusyStage,
-    opts?: { level?: number | null; message?: string; uploadPct?: number },
-  ) => void;
 }
 
 /**
