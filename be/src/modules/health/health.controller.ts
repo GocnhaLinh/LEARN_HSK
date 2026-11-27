@@ -2,6 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import { HskCollectionsService } from '../../database/hsk-collections.service';
+import { MediaService } from '../media/media.service';
 
 const MONGO_STATES: Record<number, string> = {
   0: 'disconnected',
@@ -15,6 +16,7 @@ export class HealthController {
   constructor(
     @InjectConnection() private readonly connection: Connection,
     private readonly hskCollections: HskCollectionsService,
+    private readonly mediaService: MediaService,
   ) {}
 
   @Get()
@@ -31,6 +33,8 @@ export class HealthController {
       hskDatabases = perLevel;
     }
 
+    const mediaStorage = await this.mediaService.getStatus(false);
+
     return {
       status: 'ok',
       service: 'HSK (QUEST) 3.0 API',
@@ -38,6 +42,7 @@ export class HealthController {
       database: this.connection.name || 'HSK',
       collections,
       hskDatabases,
+      mediaStorage,
       timestamp: new Date().toISOString(),
     };
   }

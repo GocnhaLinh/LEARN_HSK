@@ -5,10 +5,12 @@ import { DatabaseModule } from "./database/database.module";
 import { BackupModule } from "./modules/backup/backup.module";
 import { BootstrapModule } from "./modules/bootstrap/bootstrap.module";
 import { CoursesModule } from "./modules/courses/courses.module";
+import { ExamsModule } from "./modules/exams/exams.module";
 import { ExercisesModule } from "./modules/exercises/exercises.module";
 import { HandwritingModule } from "./modules/handwriting/handwriting.module";
 import { HealthModule } from "./modules/health/health.module";
 import { LessonsModule } from "./modules/lessons/lessons.module";
+import { MediaModule } from "./modules/media/media.module";
 import { NotesModule } from "./modules/notes/notes.module";
 import { ProfileModule } from "./modules/profile/profile.module";
 import { SeedModule } from "./modules/seed/seed.module";
@@ -37,6 +39,7 @@ import { VocabModule } from "./modules/vocab/vocab.module";
       }),
     }),
     DatabaseModule,
+    MediaModule,
     HealthModule,
     BootstrapModule,
     SeedModule,
@@ -45,6 +48,7 @@ import { VocabModule } from "./modules/vocab/vocab.module";
     LessonsModule,
     VocabModule,
     ExercisesModule,
+    ExamsModule,
     NotesModule,
     HandwritingModule,
     BackupModule,
