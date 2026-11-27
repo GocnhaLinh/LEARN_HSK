@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { DEFAULT_PROFILE } from "@/data/defaults";
+import { DEFAULT_PROFILE, VOCAB_STATUS_LABELS } from "@/data/defaults";
 import { exercisesKeys } from "@/features/exercises/hooks/useExercisesQuery";
 import { notesKeys } from "@/features/notes/hooks/useNotes";
 import { handwritingKeys } from "@/features/writing/hooks/useHandwriting";
@@ -499,14 +499,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       setVocab((prev) =>
         prev.map((w) => (idSet.has(w.id) ? { ...w, status: newStatus } : w)),
       );
-      const labelMap: Record<VocabStatus, string> = {
-        mastered: "Đã thuộc",
-        learning: "Đang học",
-        review: "Cần chú ý",
-        new: "Từ mới",
-      };
       showToast(
-        `Đã chuyển ${idSet.size} từ sang "${labelMap[newStatus]}"`,
+        `Đã chuyển ${idSet.size} từ sang "${VOCAB_STATUS_LABELS[newStatus]}"`,
         "yellow",
       );
       try {

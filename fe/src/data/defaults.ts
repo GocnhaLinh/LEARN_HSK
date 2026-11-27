@@ -1,4 +1,11 @@
-import { CourseMeta, UserProfile } from '../types';
+import { CourseMeta, UserProfile, VocabStatus } from '../types';
+
+export const VOCAB_STATUS_LABELS: Record<VocabStatus, string> = {
+  mastered: 'Đã thuộc',
+  learning: 'Đang học',
+  review: 'Cần chú ý',
+  new: 'Từ mới',
+};
 
 export const COURSES_META: CourseMeta[] = [
   {
