@@ -1,33 +1,6 @@
+import type { CreateVocabPayload, UpdateVocabPayload } from "@/features/vocab/types";
 import apiClient from "@/lib/api/client";
 import type { UserProfile, VocabStatus, VocabWord } from "@/types";
-
-export interface CreateVocabPayload {
-  hanzi: string;
-  pinyin: string;
-  hanviet?: string;
-  english?: string;
-  meaning: string;
-  pos?: string;
-  level: number;
-  lessonId?: string;
-  note?: string;
-  exampleZh?: string;
-  exampleVi?: string;
-}
-
-export type UpdateVocabPayload = Partial<{
-  hanzi: string;
-  pinyin: string;
-  hanviet: string;
-  english: string;
-  meaning: string;
-  pos: string;
-  level: number;
-  status: VocabStatus;
-  note: string;
-  exampleZh: string;
-  exampleVi: string;
-}>;
 
 export const vocabApi = {
   getVocab: async (): Promise<VocabWord[]> => {
@@ -97,13 +70,13 @@ export const vocabApi = {
     return data;
   },
 
-  exportBackup: async (): Promise<any> => {
-    const { data } = await apiClient.get<any>("/backup/export");
+  exportBackup: async (): Promise<unknown> => {
+    const { data } = await apiClient.get<unknown>("/backup/export");
     return data;
   },
 
-  importBackup: async (payload: any): Promise<any> => {
-    const { data } = await apiClient.post<any>("/backup/import", payload, {
+  importBackup: async (payload: unknown): Promise<unknown> => {
+    const { data } = await apiClient.post<unknown>("/backup/import", payload, {
       timeout: 60_000,
     });
     return data;
