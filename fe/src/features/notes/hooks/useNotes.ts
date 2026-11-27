@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApp } from '@/context/AppContext';
-import { notesApi, SaveNotePayload } from '@/features/notes/api/notes.api';
+import { notesApi } from '@/features/notes/api/notes.api';
+import type { SaveNotePayload } from '@/features/notes/types';
 import { EffectCoords, spawnFloatingXP } from '@/lib/fx-utils';
 import { useToastStore } from '@/stores/toast.store';
 import type { MindNote } from '@/types';

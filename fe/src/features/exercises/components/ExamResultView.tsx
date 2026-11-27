@@ -14,15 +14,14 @@ import {
 } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { Badge, Button, Card, EmptyState, ProgressBar } from '@/components/ui';
+import type { ExamGradeSummary, ReviewFilter } from '@/features/exercises/types';
 import {
   buildCompletedSentence,
-  ExamGradeSummary,
   formatTimer,
   getExerciseTypeLabel,
   getQuestionSpeechText,
   hasSelectableOptions,
   OPTION_LETTERS,
-  ReviewFilter,
 } from '@/features/exercises/utils/exam-utils';
 import { speakChinese } from '@/lib/speech-utils';
 import { useToastStore } from '@/stores/toast.store';

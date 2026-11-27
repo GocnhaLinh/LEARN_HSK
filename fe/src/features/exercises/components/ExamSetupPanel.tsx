@@ -17,13 +17,15 @@ import {
 } from 'lucide-react';
 import React from 'react';
 import { Badge, Button, Card, EmptyState, ProgressBar, Select } from '@/components/ui';
-import type { ActiveDraftSummary } from '@/features/exercises/hooks/useExamSession';
-import {
+import type {
+  ActiveDraftSummary,
   ExamConfig,
+  LocalExamAttempt,
+} from '@/features/exercises/types';
+import {
   EXERCISE_TYPE_LABELS,
   formatAttemptDate,
   formatTimer,
-  LocalExamAttempt,
   QUESTION_COUNT_PRESETS,
   TIME_LIMIT_PRESETS,
 } from '@/features/exercises/utils/exam-utils';

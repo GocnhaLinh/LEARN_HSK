@@ -1,68 +1,16 @@
 import type {
+  ClassifiedExamFiles,
+  CroppedQuestionImage,
   ExamPart,
   ExamQuestionGroup,
   ExamQuestionItem,
   ExamSection,
-} from '../api/exams.api';
-
-export interface PdfRawTextItem {
-  x: number;
-  y: number;
-  w: number;
-  str: string;
-}
-
-export interface PdfExtractedPage {
-  pageNumber: number;
-  width: number;
-  height: number;
-  items: PdfRawTextItem[];
-}
-
-export interface ParsedExamWarning {
-  questionNumber: number;
-  severity: 'warning' | 'error';
-  message: string;
-  /** Optional raw source text from PDF so user can easily locate & fix it in the source file */
-  sourceText?: string;
-  /** Optional 1-to-1 OCR typo suggestion (e.g. from "陂" -> to "被") */
-  suggestedFix?: { from: string; to: string };
-}
-
-export interface CroppedQuestionImage {
-  questionNumber: number;
-  blob: Blob;
-  previewUrl: string;
-  filename: string;
-}
-
-export interface ParsedExamBundleResult {
-  code: string;
-  level: number;
-  title: string;
-  description: string;
-  totalDurationMin: number;
-  audioDurationSec?: number;
-  sections: ExamSection[];
-  warnings: ParsedExamWarning[];
-  stats: {
-    totalQuestions: number;
-    listeningCount: number;
-    readingCount: number;
-    writingCount: number;
-    answersMatched: number;
-    transcriptsMatched: number;
-    imagesCropped: number;
-  };
-  croppedImages: CroppedQuestionImage[];
-}
-
-export interface ClassifiedExamFiles {
-  examPdf: File | null;
-  answerPdf: File | null;
-  transcriptPdf: File | null;
-  audioFile: File | null;
-}
+  ParsedExamBundleResult,
+  ParsedExamWarning,
+  ParsedTranscriptData,
+  PdfExtractedPage,
+  PdfRawTextItem,
+} from '@/features/exams/types';
 
 const CJK_CHAR = '[\u4e00-\u9fff]';
 const CJK_OR_PUNCT = '[\u4e00-\u9fff，。！？、；：“”‘’（）《》【】—…]';
@@ -266,18 +214,6 @@ export function parseAnswerKeyText(rawText: string): Map<number, string> {
   }
 
   return answers;
-}
-
-export interface ParsedTranscriptData {
-  /** Per-question individual transcripts (Q1-30) */
-  byQuestion: Map<number, { transcript: string; spokenQuestion?: string }>;
-  /** Grouped passage transcripts (Q31-45), keyed by range start question number */
-  groups: Array<{
-    start: number;
-    end: number;
-    transcript: string;
-    questions: Map<number, string>;
-  }>;
 }
 
 /**

@@ -24,12 +24,12 @@ import type {
   ExamQuestionItem,
   ExamSectionKey,
   OfficialExam,
-} from '../api/exams.api';
+  OfficialExamMode,
+} from '@/features/exams/types';
 import {
   countHanziChars,
   getActiveSectionsForMode,
   MODE_LABELS,
-  type OfficialExamMode,
   SECTION_LABELS,
 } from '../utils/official-exam-grading';
 

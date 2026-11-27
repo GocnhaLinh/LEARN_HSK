@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { useExamLockStore } from '@/features/exercises/stores/exam-lock.store';
-import type { ExamSectionKey, OfficialExam } from '../api/exams.api';
+import type {
+  ExamSectionKey,
+  LocalOfficialExamAttempt,
+  LocalOfficialExamDraft,
+  OfficialExam,
+  OfficialExamGradeResult,
+  OfficialExamMode,
+  OfficialSessionPhase,
+} from '@/features/exams/types';
 import {
   appendOfficialExamHistory,
   clearOfficialExamDraft,
@@ -13,14 +21,8 @@ import {
   loadAllOfficialExamDrafts,
   loadOfficialExamDraft,
   loadOfficialExamHistory,
-  type LocalOfficialExamAttempt,
-  type LocalOfficialExamDraft,
-  type OfficialExamGradeResult,
-  type OfficialExamMode,
   saveOfficialExamDraft,
 } from '../utils/official-exam-grading';
-
-export type OfficialSessionPhase = 'idle' | 'taking' | 'result';
 
 export function useOfficialExamSession(level: number, exam: OfficialExam | null) {
   const { showToast } = useApp();

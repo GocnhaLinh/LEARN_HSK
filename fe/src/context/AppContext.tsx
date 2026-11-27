@@ -88,17 +88,6 @@ interface AppContextValue {
     autoGenerateExercises?: boolean;
     extractedExercises?: ExtractedExerciseRow[];
   }) => Promise<boolean>;
-  recordGameWin: (
-    xpAmount: number,
-    label: string,
-    ev?: ClickCoords,
-    meta?: {
-      level?: number;
-      mode?: "quiz" | "listen" | "match";
-      score?: number;
-      combo?: number;
-    },
-  ) => Promise<void>;
   exportDataJSON: () => Promise<void>;
   importDataJSON: (rawJson: string) => Promise<void>;
 }
@@ -746,47 +735,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [showToast, triggerXpEffects],
   );
 
-  const recordGameWin = useCallback(
-    async (
-      xpAmount: number,
-      label: string,
-      ev?: ClickCoords,
-      _meta?: {
-        level?: number;
-        mode?: "quiz" | "listen" | "match";
-        score?: number;
-        combo?: number;
-      },
-    ) => {
-      setProfile((prev) => {
-        const nextReviews = prev.todayReviews + 1;
-        const nextWeekly = [...prev.weeklyLog];
-        nextWeekly[6] = nextReviews;
-        return {
-          ...prev,
-          xp: prev.xp + xpAmount,
-          todayReviews: nextReviews,
-          weeklyLog: nextWeekly,
-          missionsDone: {
-            ...prev.missionsDone,
-            m1: nextReviews >= 5 ? true : prev.missionsDone.m1,
-            m4: true,
-          },
-        };
-      });
-      triggerXpEffects(xpAmount, label, ev);
-
-      try {
-        const updated = await api.recordReview(xpAmount, true);
-        setProfile((prev) => ({ ...prev, ...updated }));
-        setApiConnected(true);
-      } catch {
-        // Offline fallback
-      }
-    },
-    [triggerXpEffects],
-  );
-
   const exportDataJSON = useCallback(async () => {
     const p = profileRef.current;
     let payload: any = {
@@ -879,7 +827,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       deleteCustomWord,
       batchDeleteWords,
       bulkImportWords,
-      recordGameWin,
       exportDataJSON,
       importDataJSON,
     }),
@@ -905,7 +852,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       deleteCustomWord,
       batchDeleteWords,
       bulkImportWords,
-      recordGameWin,
       exportDataJSON,
       importDataJSON,
     ],

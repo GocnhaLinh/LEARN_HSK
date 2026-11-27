@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApp } from '@/context/AppContext';
-import {
-  examsApi,
-  type ImportOfficialExamInput,
-  type MediaStorageStatus,
-  type OfficialExam,
-  type OfficialExamSummary,
-} from '../api/exams.api';
+import { examsApi } from '@/features/exams/api/exams.api';
+import type {
+  ImportOfficialExamInput,
+  MediaStorageStatus,
+  OfficialExam,
+  OfficialExamSummary,
+} from '@/features/exams/types';
 
 export const examsKeys = {
   all: ['exams'] as const,

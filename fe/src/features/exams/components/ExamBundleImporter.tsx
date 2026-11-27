@@ -19,19 +19,19 @@ import {
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Card, Input, ProgressBar, Textarea } from '@/components/ui';
 import { formatTimer } from '@/features/exercises/utils/exam-utils';
-import type { ExamQuestionItem, ExamSectionKey } from '../api/exams.api';
+import type {
+  CroppedQuestionImage,
+  ExamQuestionItem,
+  ExamSectionKey,
+  ParsedExamWarning,
+} from '@/features/exams/types';
 import { useImportExamMutation, useMediaStorageStatus } from '../hooks/useExamsQuery';
 import {
   getRemainingDraftMinutes,
   hasDraftContent,
   useExamImporterStore,
 } from '../stores/exam-importer.store';
-import {
-  classifyExamBundleFiles,
-  type CroppedQuestionImage,
-  type ParsedExamWarning,
-  parseExamBundleFiles,
-} from '../utils/hsk-exam-parser';
+import { classifyExamBundleFiles, parseExamBundleFiles } from '../utils/hsk-exam-parser';
 
 export interface ExamBundleImporterProps {
   level: number;

@@ -1,11 +1,6 @@
+import type { SaveNotePayload } from "@/features/notes/types";
 import apiClient from "@/lib/api/client";
 import type { MindNote, UserProfile } from "@/types";
-
-export interface SaveNotePayload {
-  title: string;
-  tag: string;
-  content: string;
-}
 
 export const notesApi = {
   getNotes: async (): Promise<MindNote[]> => {
