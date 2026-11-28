@@ -16,16 +16,11 @@ import {
   useCoursesUiStore,
 } from '@/features/courses/stores/courses-ui.store';
 import { exercisesKeys } from '@/features/exercises/hooks/useExercisesQuery';
+import { useProfileStore } from '@/features/profile/stores/profile.store';
+import { normalizeProfile } from '@/features/profile/utils/profile-stats';
 import { vocabKeys } from '@/features/vocab/hooks/useVocab';
 import { useToastStore } from '@/stores/toast.store';
 import type { ExerciseItem, Lesson, UserProfile, VocabWord } from '@/types';
-
-// Mock syncProfile từ AppContext để kiểm tra xem XP/profile mới có được đồng bộ sau khi import không
-const mockSyncProfile = vi.fn();
-
-vi.mock('@/context/AppContext', () => ({
-  useApp: () => ({ syncProfile: mockSyncProfile }),
-}));
 
 // Mock hiệu ứng confetti / floating XP để tránh tạo node DOM thừa trong môi trường jsdom
 vi.mock('@/lib/fx-utils', () => ({
@@ -47,7 +42,7 @@ function createWrapper() {
 describe('useBulkImportLessons & useCourseImporter (Lưu khóa học & Luồng Smart Importer)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    mockSyncProfile.mockReset();
+    useProfileStore.setState({ profile: normalizeProfile(null), apiConnected: false });
     useCoursesUiStore.setState({ expandedLessons: {}, importerDraftByLevel: {} });
     useToastStore.getState().clearToasts();
   });
@@ -137,7 +132,7 @@ describe('useBulkImportLessons & useCourseImporter (Lưu khóa học & Luồng S
     expect(qc.getQueryData<Lesson[]>(coursesKeys.lessons)).toHaveLength(2);
     expect(qc.getQueryData<VocabWord[]>(vocabKeys.list)?.[0].hanzi).toBe('安慰');
     expect(qc.getQueryData<ExerciseItem[]>(exercisesKeys.byLevel(5))?.[0].id).toBe('ex-new');
-    expect(mockSyncProfile).toHaveBeenCalledWith(nextProfile);
+    expect(useProfileStore.getState().profile.xp).toBe(130);
     const toastsAfterSuccess = useToastStore.getState().toasts;
     const lastToast = toastsAfterSuccess[toastsAfterSuccess.length - 1];
     expect(lastToast?.variant).toBe('yellow');

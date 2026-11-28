@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useApp } from '@/context/AppContext';
 import { examsApi } from '@/features/exams/api/exams.api';
+import { useToastStore } from '@/stores/toast.store';
 import type {
   ImportOfficialExamInput,
   MediaStorageStatus,
@@ -44,44 +44,46 @@ export function useMediaStorageStatus(enabled = true) {
 
 export function useImportExamMutation(level: number) {
   const queryClient = useQueryClient();
-  const { showToast } = useApp();
 
   return useMutation({
     mutationFn: (input: ImportOfficialExamInput) => examsApi.importExam(input),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: examsKeys.byLevel(level) });
       queryClient.setQueryData(examsKeys.detail(created.id), created);
-      showToast(
-        `Đã lưu bộ đề "${created.title}" (${created.totalQuestions} câu) lên MongoDB${
-          created.audioUrl ? ' & Cloudinary' : ''
-        }!`,
-        'yellow',
-      );
+      useToastStore
+        .getState()
+        .showToast(
+          `Đã lưu bộ đề "${created.title}" (${created.totalQuestions} câu) lên MongoDB${
+            created.audioUrl ? ' & Cloudinary' : ''
+          }!`,
+          'yellow',
+        );
     },
     onError: (err: Error) => {
-      showToast(`Lưu đề thi thất bại: ${err.message}`, 'pink');
+      useToastStore.getState().showToast(`Lưu đề thi thất bại: ${err.message}`, 'pink');
     },
   });
 }
 
 export function useDeleteExamMutation(level: number) {
   const queryClient = useQueryClient();
-  const { showToast } = useApp();
 
   return useMutation({
     mutationFn: (id: string) => examsApi.remove(id),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: examsKeys.byLevel(level) });
       queryClient.removeQueries({ queryKey: examsKeys.detail(res.id) });
-      showToast(
-        res.deletedAssets > 0
-          ? `Đã xóa đề thi và dọn ${res.deletedAssets} file media trên Cloudinary.`
-          : 'Đã xóa bộ đề thi.',
-        'dark',
-      );
+      useToastStore
+        .getState()
+        .showToast(
+          res.deletedAssets > 0
+            ? `Đã xóa đề thi và dọn ${res.deletedAssets} file media trên Cloudinary.`
+            : 'Đã xóa bộ đề thi.',
+          'dark',
+        );
     },
     onError: (err: Error) => {
-      showToast(`Xóa đề thi thất bại: ${err.message}`, 'pink');
+      useToastStore.getState().showToast(`Xóa đề thi thất bại: ${err.message}`, 'pink');
     },
   });
 }

@@ -1,9 +1,12 @@
 import { Disc3, Flame, Loader2, Sparkles } from 'lucide-react';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { useApp } from '@/context/AppContext';
 import { useExamImporterStore } from '@/features/exams/stores/exam-importer.store';
+import { useToggleTheme } from '@/features/profile/hooks/useProfile';
+import { useProfileStore } from '@/features/profile/stores/profile.store';
+import { computeXpLevel } from '@/features/profile/utils/profile-stats';
 import { preloadRoute } from '@/routes/lazyPages';
+import { useToastStore } from '@/stores/toast.store';
 
 const NAV_ITEMS = [
   { to: '/', num: '[01]', label: 'Trang chủ', end: true },
@@ -16,7 +19,10 @@ const NAV_ITEMS = [
 ];
 
 export const Navbar: React.FC = () => {
-  const { profile, toggleTheme, showToast } = useApp();
+  const theme = useProfileStore((s) => s.profile.theme);
+  const xp = useProfileStore((s) => s.profile.xp);
+  const streak = useProfileStore((s) => s.profile.streak);
+  const toggleTheme = useToggleTheme();
   const { pathname } = useLocation();
   const isUploading = useExamImporterStore((s) => s.busyStage !== 'idle');
   const [cdPlaying, setCdPlaying] = useState(false);
@@ -43,14 +49,14 @@ export const Navbar: React.FC = () => {
     updateSlider();
     window.addEventListener('resize', updateSlider);
     return () => window.removeEventListener('resize', updateSlider);
-  }, [activeNavIdx, profile.theme]);
+  }, [activeNavIdx, theme]);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const cdIntervalRef = useRef<number | null>(null);
   const notesIntervalRef = useRef<number | null>(null);
   const notesLayerRef = useRef<HTMLDivElement | null>(null);
 
-  const level = Math.floor(profile.xp / 200) + 1;
+  const { xpLevel: level } = computeXpLevel(xp);
 
   const playPentatonicNote = () => {
     const ctx = audioCtxRef.current;
@@ -84,6 +90,7 @@ export const Navbar: React.FC = () => {
   };
 
   const toggleCDPlayer = () => {
+    const { showToast } = useToastStore.getState();
     if (cdPlaying) {
       setCdPlaying(false);
       if (cdIntervalRef.current) window.clearInterval(cdIntervalRef.current);
@@ -112,6 +119,10 @@ export const Navbar: React.FC = () => {
     return () => {
       if (cdIntervalRef.current) window.clearInterval(cdIntervalRef.current);
       if (notesIntervalRef.current) window.clearInterval(notesIntervalRef.current);
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
+      }
     };
   }, []);
 
@@ -141,13 +152,13 @@ export const Navbar: React.FC = () => {
               title="Chuỗi ngày điểm danh liên tiếp"
             >
               <Flame className="w-3 h-3 shrink-0" />
-              <span>{profile.streak}d</span>
+              <span>{streak}d</span>
             </span>
             <span
               className="px-2 py-0.5 rounded bg-[#F4C2D7] text-[#111111] font-bold border border-[#111111] whitespace-nowrap shrink-0"
               title="Cấp độ & Điểm kinh nghiệm"
             >
-              LV.{level} • {profile.xp} XP
+              LV.{level} • {xp} XP
             </span>
           </div>
         </div>
@@ -212,7 +223,7 @@ export const Navbar: React.FC = () => {
             title="Đổi giao diện Editorial Zine / Pastel Diary"
           >
             <Sparkles className="w-3.5 h-3.5 shrink-0" />
-            <span>{profile.theme === 'zine' ? 'Zine' : 'Pastel'}</span>
+            <span>{theme === 'zine' ? 'Zine' : 'Pastel'}</span>
           </button>
 
           <div className="relative shrink-0">

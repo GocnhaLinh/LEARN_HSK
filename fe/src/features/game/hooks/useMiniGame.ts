@@ -1,20 +1,20 @@
 import { useMutation } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
-import { useApp } from '@/context/AppContext';
 import { useGameStore } from '@/features/game/stores/game.store';
 import type { GameMode } from '@/features/game/types';
 import { profileApi } from '@/features/profile/api/profile.api';
+import { useProfileStore } from '@/features/profile/stores/profile.store';
+import { useVocab } from '@/features/vocab/hooks/useVocab';
 import { type EffectCoords, spawnConfetti, spawnFloatingXP } from '@/lib/fx-utils';
 import { speakChinese } from '@/lib/speech-utils';
 import { useToastStore } from '@/stores/toast.store';
 
 export function useRecordGameReward() {
-  const { syncProfile } = useApp();
   return useMutation({
     mutationFn: ({ xp }: { xp: number; label: string; coords?: EffectCoords }) =>
       profileApi.recordReview(xp, true),
     onMutate: ({ xp, label, coords }) => {
-      syncProfile((prev) => {
+      useProfileStore.getState().syncProfile((prev) => {
         const nextReviews = prev.todayReviews + 1;
         const nextWeekly = [...prev.weeklyLog];
         nextWeekly[6] = nextReviews;
@@ -30,13 +30,13 @@ export function useRecordGameReward() {
       if (xp >= 15) spawnConfetti(coords, 12);
       useToastStore.getState().showToast(`${label} (+${xp} XP)`, 'yellow');
     },
-    onSuccess: (profile) => profile && syncProfile(profile),
+    onSuccess: (profile) => profile && useProfileStore.getState().syncProfile(profile),
     onError: () => {},
   });
 }
 
 export function useMiniGame(gameMode: GameMode) {
-  const { vocab } = useApp();
+  const { data: vocab = [] } = useVocab();
   const levelFilter = useGameStore((s) => s.levelFilter);
   const { mutate: reward } = useRecordGameReward();
   const timers = useRef<{ round?: number; speak?: number }>({});

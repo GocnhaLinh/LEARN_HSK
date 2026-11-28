@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '@/context/AppContext';
+import { useCourses } from '@/features/courses/hooks/useCourses';
+import { useProfileStore } from '@/features/profile/stores/profile.store';
 import { VocabBulkBar } from '@/features/vocab/components/VocabBulkBar';
 import { VocabFilterToolbar } from '@/features/vocab/components/VocabFilterToolbar';
 import { VocabHeaderBar } from '@/features/vocab/components/VocabHeaderBar';
@@ -27,7 +28,8 @@ import type { VocabStatus } from '@/types';
 
 export const VocabPage: React.FC = () => {
   const navigate = useNavigate();
-  const { profile, lessons } = useApp();
+  const focusLevel = useProfileStore((s) => s.profile.focusLevel);
+  const { data: lessons = [] } = useCourses();
   const { data: vocab = [] } = useVocab();
   const listTopRef = useRef<HTMLDivElement | null>(null);
 
@@ -42,7 +44,7 @@ export const VocabPage: React.FC = () => {
   const filter = useVocabFilter(vocab, lessons);
   const filteredIds = useMemo(() => filter.filteredList.map((w) => w.id), [filter.filteredList]);
   const defaultModalLevel =
-    filter.levelFilter !== 'all' ? Number(filter.levelFilter) || profile.focusLevel : profile.focusLevel;
+    filter.levelFilter !== 'all' ? Number(filter.levelFilter) || focusLevel : focusLevel;
 
   const goToPage = useCallback(
     (nextPage: number) => {

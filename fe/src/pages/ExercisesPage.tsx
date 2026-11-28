@@ -2,8 +2,8 @@ import { ArrowLeft, BookOpenCheck, GraduationCap } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui';
-import { useApp } from '@/context/AppContext';
 import { COURSES_META } from '@/data/defaults';
+import { useCourses } from '@/features/courses/hooks/useCourses';
 import { OfficialExamsTab } from '@/features/exams/components/OfficialExamsTab';
 import { useExamImporterStore } from '@/features/exams/stores/exam-importer.store';
 import { ExamResultView } from '@/features/exercises/components/ExamResultView';
@@ -85,7 +85,7 @@ const PracticeExercisesTab: React.FC<PracticeExercisesTabProps> = ({
   onBackToCourse,
   onSessionActiveChange,
 }) => {
-  const { lessons } = useApp();
+  const { data: lessons = [] } = useCourses();
   const courseLessons = useMemo(
     () => lessons.filter((l) => l.level === level),
     [lessons, level],
