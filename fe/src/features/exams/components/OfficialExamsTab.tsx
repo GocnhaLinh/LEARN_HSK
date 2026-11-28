@@ -13,13 +13,13 @@ import {
   Trophy,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { Badge, Button, Card, EmptyState, Modal } from '@/components/ui';
+import { Badge, Button, Card, EmptyState } from '@/components/ui';
 import { formatAttemptDate, formatTimer } from '@/features/exercises/utils/exam-utils';
+import { useConfirmStore } from '@/stores/confirm.store';
 import type { CourseMeta } from '@/types';
 import type {
   LocalOfficialExamAttempt,
   OfficialExamMode,
-  OfficialExamSummary,
 } from '@/features/exams/types';
 import {
   useDeleteExamMutation,
@@ -79,7 +79,6 @@ export const OfficialExamsTab: React.FC<OfficialExamsTabProps> = ({
     | { type: 'history'; attempt: LocalOfficialExamAttempt }
     | null
   >(null);
-  const [deleteTarget, setDeleteTarget] = useState<OfficialExamSummary | null>(null);
 
   const { data: exams = [], isLoading } = useExamsByLevel(level);
   const { data: activeExamDetail, isFetching: isLoadingDetail } = useExamDetail(selectedExamId);
@@ -168,10 +167,13 @@ export const OfficialExamsTab: React.FC<OfficialExamsTabProps> = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5">
       {/* Header + Import Trigger */}
-      <Card padding="lg" className="flex flex-wrap items-center justify-between gap-4">
-        <div>
+      <Card
+        padding="md"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4"
+      >
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <Badge variant="dark" size="sm">
               {meta.code} · BỘ ĐỀ THI CHUẨN
@@ -192,6 +194,7 @@ export const OfficialExamsTab: React.FC<OfficialExamsTabProps> = ({
         <Button
           variant={showImporter ? 'default' : 'yellow'}
           disabled={isImporterBusy}
+          className="shrink-0 self-start md:self-center whitespace-nowrap"
           leftIcon={<FilePlus2 className="w-4 h-4" />}
           onClick={() => setImporterOpen(level, !showImporter)}
         >
@@ -257,17 +260,31 @@ export const OfficialExamsTab: React.FC<OfficialExamsTabProps> = ({
             return (
               <Card key={exam.id} padding="md" className="flex flex-col justify-between gap-4">
                 <div className="space-y-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge variant="dark" size="sm">
+                  <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                    <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-wrap sm:flex-nowrap">
+                      <Badge
+                        variant="dark"
+                        size="xs"
+                        className="sm:px-2 sm:py-0.5 sm:text-[11px] whitespace-nowrap shrink-0"
+                      >
                         {exam.code}
                       </Badge>
-                      <Badge variant="subtle" size="sm">
-                        {exam.totalQuestions} câu · {exam.totalDurationMin} phút
+                      <Badge
+                        variant="subtle"
+                        size="xs"
+                        className="sm:px-2 sm:py-0.5 sm:text-[11px] whitespace-nowrap shrink-0"
+                      >
+                        {exam.totalQuestions} câu · {exam.totalDurationMin}
+                        <span className="sm:hidden">p</span>
+                        <span className="hidden sm:inline"> phút</span>
                       </Badge>
                       {exam.audioUrl && (
-                        <Badge variant="mint" size="sm">
-                          <Cloud className="w-3 h-3" />
+                        <Badge
+                          variant="mint"
+                          size="xs"
+                          className="sm:px-2 sm:py-0.5 sm:text-[11px] whitespace-nowrap shrink-0"
+                        >
+                          <Cloud className="w-3 h-3 shrink-0" />
                           MP3 {exam.audioDurationSec ? formatTimer(exam.audioDurationSec) : ''}
                         </Badge>
                       )}
@@ -275,8 +292,23 @@ export const OfficialExamsTab: React.FC<OfficialExamsTabProps> = ({
                     <button
                       type="button"
                       disabled={isImporterBusy}
-                      onClick={() => setDeleteTarget(exam)}
-                      className="p-1.5 rounded border border-transparent hover:border-[#D9468F] text-[#57534E] hover:text-[#BE185D] disabled:opacity-40 disabled:pointer-events-none"
+                      onClick={() =>
+                        useConfirmStore.getState().openConfirm({
+                          title: 'Xác nhận xóa bộ đề thi?',
+                          message: (
+                            <p>
+                              Xóa bộ đề <strong>{exam.title}</strong> sẽ xóa toàn bộ{' '}
+                              {exam.totalQuestions} câu hỏi trong MongoDB và dọn sạch file MP3 / ảnh
+                              trên Cloudinary.
+                            </p>
+                          ),
+                          confirmLabel: 'Xóa vĩnh viễn',
+                          onConfirm: async () => {
+                            await deleteMutation.mutateAsync(exam.id);
+                          },
+                        })
+                      }
+                      className="p-1.5 rounded border border-transparent hover:border-[#D9468F] text-[#57534E] hover:text-[#BE185D] disabled:opacity-40 disabled:pointer-events-none shrink-0"
                       title="Xóa bộ đề này"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -316,7 +348,19 @@ export const OfficialExamsTab: React.FC<OfficialExamsTabProps> = ({
                           variant="default"
                           size="sm"
                           disabled={isImporterBusy}
-                          onClick={() => session.discardDraft(exam.id)}
+                          onClick={() =>
+                            useConfirmStore.getState().openConfirm({
+                              title: 'Xác nhận bỏ bản nháp?',
+                              message: (
+                                <p>
+                                  Bản nháp đang làm dở của đề <strong>{exam.title}</strong> (
+                                  {draftAnswered} câu đã trả lời) sẽ bị xóa khỏi trình duyệt.
+                                </p>
+                              ),
+                              confirmLabel: 'Bỏ nháp',
+                              onConfirm: () => session.discardDraft(exam.id),
+                            })
+                          }
                         >
                           Bỏ nháp
                         </Button>
@@ -338,7 +382,7 @@ export const OfficialExamsTab: React.FC<OfficialExamsTabProps> = ({
                 <div className="space-y-2 pt-2 border-t border-[#141414]/15">
                   <Button
                     variant="yellow"
-                    className="w-full"
+                    className="w-full text-[11px] sm:text-xs whitespace-nowrap"
                     disabled={isImporterBusy}
                     leftIcon={<Play className="w-4 h-4" />}
                     onClick={() => launchExam(exam.id, 'full')}
@@ -398,7 +442,19 @@ export const OfficialExamsTab: React.FC<OfficialExamsTabProps> = ({
               variant="default"
               size="sm"
               disabled={isImporterBusy}
-              onClick={session.handleClearHistory}
+              onClick={() =>
+                useConfirmStore.getState().openConfirm({
+                  title: 'Xác nhận xóa lịch sử thi?',
+                  message: (
+                    <p>
+                      Toàn bộ <strong>{session.history.length} lượt thi</strong> chuẩn {meta.code}{' '}
+                      đã lưu trên trình duyệt sẽ bị xóa.
+                    </p>
+                  ),
+                  confirmLabel: 'Xóa lịch sử',
+                  onConfirm: session.handleClearHistory,
+                })
+              }
             >
               Xóa lịch sử
             </Button>
@@ -447,37 +503,6 @@ export const OfficialExamsTab: React.FC<OfficialExamsTabProps> = ({
           </div>
         )}
       </Card>
-
-      {/* Confirm Delete Modal */}
-      <Modal
-        open={Boolean(deleteTarget)}
-        onClose={() => setDeleteTarget(null)}
-        title="Xác nhận xóa bộ đề thi?"
-        maxWidth="md"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-[#141414]">
-            Xóa bộ đề <strong>{deleteTarget?.title}</strong> sẽ xóa toàn bộ {deleteTarget?.totalQuestions}{' '}
-            câu hỏi trong MongoDB và dọn sạch file MP3 / ảnh + thư mục con trên Cloudinary.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button variant="default" onClick={() => setDeleteTarget(null)}>
-              Hủy
-            </Button>
-            <Button
-              variant="pink"
-              disabled={deleteMutation.isPending}
-              onClick={async () => {
-                if (!deleteTarget) return;
-                await deleteMutation.mutateAsync(deleteTarget.id);
-                setDeleteTarget(null);
-              }}
-            >
-              {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

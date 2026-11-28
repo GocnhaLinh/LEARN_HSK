@@ -38,7 +38,6 @@ export interface VocabStatusStats {
 export interface VocabUiStore {
   selectedIds: Set<string>;
   expandedId: string | null;
-  confirmBulkDelete: boolean;
   modalOpen: boolean;
   editingWord: VocabWord | null;
   page: number;
@@ -50,7 +49,6 @@ export interface VocabUiStore {
   selectAllIds: (ids: string[]) => void;
   clearSelection: () => void;
   pruneSelection: (validIds: Set<string>) => void;
-  setConfirmBulkDelete: (confirm: boolean) => void;
   toggleExpand: (id: string) => void;
   openAddModal: () => void;
   openEditModal: (word: VocabWord) => void;

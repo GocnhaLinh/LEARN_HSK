@@ -2,6 +2,7 @@ import { NotebookPen, Pencil, Trash2 } from 'lucide-react';
 import React from 'react';
 import { Badge, BadgeVariant, Button, Card, EmptyState } from '@/components/ui';
 import { NOTE_TAGS } from '@/features/notes/hooks/useNotes';
+import { useConfirmStore } from '@/stores/confirm.store';
 import type { MindNote } from '@/types';
 
 const TAG_VARIANT: Record<string, BadgeVariant> = {
@@ -82,7 +83,19 @@ export const NoteList: React.FC<NoteListProps> = ({
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={() => onDelete(n.id)}
+                  onClick={() =>
+                    useConfirmStore.getState().openConfirm({
+                      title: 'Xác nhận xóa ghi chú?',
+                      message: (
+                        <p>
+                          Bạn có chắc muốn xóa ghi chú <strong>“{n.title}”</strong> không? Thao tác
+                          này không thể hoàn tác.
+                        </p>
+                      ),
+                      confirmLabel: 'Xóa ghi chú',
+                      onConfirm: () => onDelete(n.id),
+                    })
+                  }
                   title="Xóa"
                   aria-label="Xóa ghi chú"
                   className="text-red-700 hover:bg-red-50"

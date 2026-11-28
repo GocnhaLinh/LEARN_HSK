@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCourses } from '@/features/courses/hooks/useCourses';
 import { useProfileStore } from '@/features/profile/stores/profile.store';
@@ -32,6 +32,8 @@ export const VocabPage: React.FC = () => {
   const { data: lessons = [] } = useCourses();
   const { data: vocab = [] } = useVocab();
   const listTopRef = useRef<HTMLDivElement | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const toggleFilters = useCallback(() => setFiltersOpen((prev) => !prev), []);
 
   const { mutateAsync: addVocab } = useAddVocab();
   const { mutateAsync: updateVocab } = useUpdateVocab();
@@ -100,32 +102,39 @@ export const VocabPage: React.FC = () => {
     <section className="space-y-4 sm:space-y-5">
       <VocabHeaderBar
         totalVocabCount={vocab.length}
+        filtersOpen={filtersOpen}
+        hasActiveFilter={filter.hasActiveFilter}
+        onToggleFilters={toggleFilters}
         onExportCsv={handleExportCsv}
         onExportJson={exportBackupJson}
         onImportJson={importBackupJson}
       />
 
-      <VocabStatsBar
-        stats={filter.statusStats}
-        statusFilter={filter.statusFilter}
-        onSelectStatus={handleSelectStatus}
-      />
+      {filtersOpen && (
+        <>
+          <VocabStatsBar
+            stats={filter.statusStats}
+            statusFilter={filter.statusFilter}
+            onSelectStatus={handleSelectStatus}
+          />
 
-      <VocabFilterToolbar
-        searchInput={filter.searchInput}
-        onSearchChange={filter.setSearchInput}
-        levelFilter={filter.levelFilter}
-        lessonFilter={filter.lessonFilter}
-        sortBy={filter.sortBy}
-        availableLessons={filter.availableLessons}
-        filteredCount={filter.filteredList.length}
-        safePage={filter.safePage}
-        totalPages={filter.totalPages}
-        hasActiveFilter={filter.hasActiveFilter}
-        onUpdateParam={filter.updateParam}
-        onClearAllFilters={filter.clearAllFilters}
-        onOpenImportCourse={handleOpenCourses}
-      />
+          <VocabFilterToolbar
+            searchInput={filter.searchInput}
+            onSearchChange={filter.setSearchInput}
+            levelFilter={filter.levelFilter}
+            lessonFilter={filter.lessonFilter}
+            sortBy={filter.sortBy}
+            availableLessons={filter.availableLessons}
+            filteredCount={filter.filteredList.length}
+            safePage={filter.safePage}
+            totalPages={filter.totalPages}
+            hasActiveFilter={filter.hasActiveFilter}
+            onUpdateParam={filter.updateParam}
+            onClearAllFilters={filter.clearAllFilters}
+            onOpenImportCourse={handleOpenCourses}
+          />
+        </>
+      )}
 
       <VocabBulkBar
         filteredIds={filteredIds}

@@ -12,21 +12,21 @@ export const QuizArena: React.FC<{ onAnswer: (id: string, coords: EffectCoords) 
   if (!target) return null;
 
   return (
-    <div className="max-w-xl mx-auto text-center space-y-6">
+    <div className="max-w-xl mx-auto text-center space-y-4">
       <Badge variant="yellow" className="text-xs">TRẮC NGHIỆM NHANH</Badge>
-      <div className="py-4">
-        <div className="font-serifcn text-6xl sm:text-7xl font-bold">{target.hanzi}</div>
-        <p className="font-mono text-xs opacity-65 mt-2">
+      <div className="py-2">
+        <div className="font-serifcn text-5xl sm:text-6xl font-bold">{target.hanzi}</div>
+        <p className="font-mono text-xs opacity-65 mt-1.5">
           Chọn đúng nghĩa tiếng Việt &amp; Pinyin tương ứng
         </p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
         {choices.map((c) => (
           <button
             key={c.id}
             type="button"
             onClick={(e) => onAnswer(c.id, { clientX: e.clientX, clientY: e.clientY })}
-            className={`t-btn p-4 px-5 text-[#111111] flex flex-col items-center justify-center text-center ${choiceBgClass(c.id, target.id, pickedResult, 'bg-white hover:bg-[#F8F6F1]')}`}
+            className={`t-btn p-3.5 px-5 text-[#111111] flex flex-col items-center justify-center text-center ${choiceBgClass(c.id, target.id, pickedResult, 'bg-white hover:bg-[#F8F6F1]')}`}
           >
             <div className="font-bold text-sm sm:text-base">{c.meaning}</div>
             <div className="font-mono text-xs opacity-65 mt-0.5">{c.pinyin}</div>

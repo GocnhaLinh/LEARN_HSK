@@ -3,6 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui';
 import { VOCAB_STATUS_LABELS } from '@/data/defaults';
 import { useVocabUiStore } from '@/features/vocab/stores/vocab-ui.store';
+import { useConfirmStore } from '@/stores/confirm.store';
 import type { VocabStatus } from '@/types';
 
 const BULK_STATUS_BUTTONS: ReadonlyArray<{
@@ -27,10 +28,8 @@ export const VocabBulkBar: React.FC<VocabBulkBarProps> = ({
   onBulkDelete,
 }) => {
   const selectedIds = useVocabUiStore((s) => s.selectedIds);
-  const confirmBulkDelete = useVocabUiStore((s) => s.confirmBulkDelete);
   const selectAllIds = useVocabUiStore((s) => s.selectAllIds);
   const clearSelection = useVocabUiStore((s) => s.clearSelection);
-  const setConfirmBulkDelete = useVocabUiStore((s) => s.setConfirmBulkDelete);
 
   if (!selectedIds.size) return null;
 
@@ -71,27 +70,29 @@ export const VocabBulkBar: React.FC<VocabBulkBarProps> = ({
           </button>
         ))}
 
-        {confirmBulkDelete ? (
-          <button
-            type="button"
-            onClick={() => {
-              onBulkDelete(ids);
-              clearSelection();
-            }}
-            className="px-2.5 py-1 bg-red-600 text-white rounded font-bold hover:bg-red-700"
-          >
-            Xác nhận xóa {selectedIds.size} từ?
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirmBulkDelete(true)}
-            className="px-2.5 py-1 bg-red-500/20 text-red-200 border border-red-400/50 rounded font-bold inline-flex items-center gap-1 hover:bg-red-600 hover:text-white"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Xóa</span>
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() =>
+            useConfirmStore.getState().openConfirm({
+              title: 'Xác nhận xóa nhiều từ vựng?',
+              message: (
+                <p>
+                  Bạn có chắc muốn xóa vĩnh viễn <strong>{selectedIds.size} từ</strong> đã chọn khỏi
+                  kho từ không?
+                </p>
+              ),
+              confirmLabel: `Xóa ${selectedIds.size} từ`,
+              onConfirm: () => {
+                onBulkDelete(ids);
+                clearSelection();
+              },
+            })
+          }
+          className="px-2.5 py-1 bg-red-500/20 text-red-200 border border-red-400/50 rounded font-bold inline-flex items-center gap-1 hover:bg-red-600 hover:text-white"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          <span>Xóa</span>
+        </button>
 
         <button
           type="button"

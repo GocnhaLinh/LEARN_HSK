@@ -39,11 +39,11 @@ export const GamePage: React.FC = () => {
   } = useMiniGame(gameMode);
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <Card
         variant="flat"
         padding="none"
-        className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3"
+        className="p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3"
       >
         <div>
           <p className="font-mono text-[11px] uppercase opacity-65">
@@ -82,12 +82,12 @@ export const GamePage: React.FC = () => {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
         {GAME_MODES.map(([m, label, Icon]) => (
           <Button
             key={m}
             variant={gameMode === m ? "primary" : "default"}
-            className="py-3 px-4 gap-2"
+            className="py-2.5 px-4 gap-2"
             leftIcon={<Icon className="w-4 h-4" />}
             onClick={() => navigate(`/game/${m}`)}
           >
@@ -96,7 +96,7 @@ export const GamePage: React.FC = () => {
         ))}
       </div>
 
-      <Card padding="none" className="p-6 sm:p-8">
+      <Card padding="none" className="p-4 sm:p-6">
         {!hasEnoughVocab ? (
           <EmptyState
             className="max-w-lg mx-auto px-0 sm:px-0 py-6 sm:py-6"

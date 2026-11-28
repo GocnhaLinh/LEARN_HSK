@@ -25,7 +25,10 @@ export const CourseDetailPage: React.FC = () => {
   const { data: lessons = [] } = useCourses();
   const { data: vocab = [] } = useVocab();
   const { data: courseExercises = [] } = useExercisesQuery(level);
-  const localExamStats = useMemo(() => getLocalCourseExamStats(level), [level]);
+  const localExamStats = useMemo(
+    () => getLocalCourseExamStats(level, new Set(courseExercises.map((ex) => ex.id))),
+    [level, courseExercises],
+  );
   const scrolledDown = useScrollPast(180);
   const importer = useCourseImporter(level);
 
@@ -77,18 +80,20 @@ export const CourseDetailPage: React.FC = () => {
 
   return (
     <section className="space-y-6">
-      <Card padding="none" className="p-5 sm:p-6 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <Card padding="none" className="p-4 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between gap-2">
           <Button
             size="sm"
-            className="px-3.5 py-1.5"
-            leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
+            className="px-2.5 sm:px-3.5 py-1.5 whitespace-nowrap shrink-0"
+            leftIcon={<ArrowLeft className="w-3.5 h-3.5 shrink-0" />}
             onClick={() => navigate('/courses')}
           >
-            Quay lại danh sách khóa học
+            <span>
+              Quay lại<span className="hidden sm:inline"> danh sách khóa học</span>
+            </span>
           </Button>
           <span
-            className="px-2.5 py-1 font-mono text-[11px] font-bold text-[#111111] t-badge"
+            className="px-2 sm:px-2.5 py-1 font-mono text-[10px] sm:text-[11px] font-bold text-[#111111] t-badge whitespace-nowrap shrink-0"
             style={{ backgroundColor: meta.color }}
           >
             {meta.code} • {meta.badge}
@@ -97,7 +102,7 @@ export const CourseDetailPage: React.FC = () => {
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-1">
           <div>
-            <h2 className="font-serif font-bold text-3xl">
+            <h2 className="font-serif font-bold text-[22px] sm:text-3xl leading-snug whitespace-nowrap">
               {meta.emoji} {meta.title}
             </h2>
             <p className="text-xs sm:text-sm opacity-75 mt-1">{meta.subtitle}</p>

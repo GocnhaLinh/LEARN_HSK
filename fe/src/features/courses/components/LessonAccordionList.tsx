@@ -121,29 +121,33 @@ export const LessonAccordionList: React.FC<LessonAccordionListProps> = React.mem
                       </p>
                     </button>
 
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto shrink-0">
                       <Button
                         variant="primary"
                         size="sm"
-                        className="px-3.5 py-2"
-                        leftIcon={<Layers className="w-3.5 h-3.5" />}
+                        className="flex-1 sm:flex-initial px-2.5 sm:px-3.5 py-2 whitespace-nowrap"
+                        leftIcon={<Layers className="w-3.5 h-3.5 shrink-0" />}
                         onClick={() => onOpenFlashcard(lesson.id)}
                       >
-                        Ôn Flashcard bài này
+                        <span>
+                          Ôn Flashcard<span className="hidden sm:inline"> bài này</span>
+                        </span>
                       </Button>
                       <Button
                         variant="yellow"
                         size="sm"
-                        className="px-3.5 py-2"
-                        leftIcon={<PenTool className="w-3.5 h-3.5" />}
+                        className="flex-1 sm:flex-initial px-2.5 sm:px-3.5 py-2 whitespace-nowrap"
+                        leftIcon={<PenTool className="w-3.5 h-3.5 shrink-0" />}
                         onClick={() => onPracticeWriting(lesson.id)}
                       >
-                        Luyện viết bài này
+                        <span>
+                          Luyện viết<span className="hidden sm:inline"> bài này</span>
+                        </span>
                       </Button>
                       <Button
                         variant="default"
                         size="sm"
-                        className="px-2.5 py-2 hover:bg-[#F4C2D7]"
+                        className="shrink-0 px-2.5 py-2 hover:bg-[#F4C2D7]"
                         title={expanded ? 'Thu gọn danh sách từ' : 'Xem danh sách từ'}
                         leftIcon={
                           expanded ? (
