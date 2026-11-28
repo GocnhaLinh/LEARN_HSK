@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useApp } from '@/context/AppContext';
 import { useExamLockStore } from '@/features/exercises/stores/exam-lock.store';
+import { useToastStore } from '@/stores/toast.store';
 import type {
   ExamSectionKey,
   LocalOfficialExamAttempt,
@@ -25,7 +25,6 @@ import {
 } from '../utils/official-exam-grading';
 
 export function useOfficialExamSession(level: number, exam: OfficialExam | null) {
-  const { showToast } = useApp();
   const setExamActive = useExamLockStore((s) => s.setExamActive);
 
   const [phase, setPhase] = useState<OfficialSessionPhase>('idle');
@@ -197,14 +196,14 @@ export function useOfficialExamSession(level: number, exam: OfficialExam | null)
       setConfirmModal(null);
       setPhase('result');
 
-      showToast(
+      useToastStore.getState().showToast(
         autoSubmitted
           ? `Hết giờ — hệ thống đã tự chấm: ${result.totalScore}/${result.maxScore} điểm.`
           : `Đã chấm xong đề ${s.exam.code}: ${result.totalScore}/${result.maxScore} điểm!`,
         result.passed ? 'yellow' : 'dark',
       );
     },
-    [showToast, refreshDrafts],
+    [refreshDrafts],
   );
 
   // 1-second timer tick while taking
@@ -273,9 +272,9 @@ export function useOfficialExamSession(level: number, exam: OfficialExam | null)
       clearOfficialExamDraft(examId);
       refreshDrafts();
       setPhase('idle');
-      showToast('Đã xóa bản nháp bài thi.', 'dark');
+      useToastStore.getState().showToast('Đã xóa bản nháp bài thi.', 'dark');
     },
-    [showToast, refreshDrafts],
+    [refreshDrafts],
   );
 
   const updateAnswer = useCallback((questionNumber: number, value: string) => {
@@ -304,16 +303,16 @@ export function useOfficialExamSession(level: number, exam: OfficialExam | null)
   const handleClearHistory = useCallback(() => {
     clearOfficialExamHistory(level);
     setHistory([]);
-    showToast('Đã xóa lịch sử thi thử HSK trên trình duyệt.', 'dark');
-  }, [level, showToast]);
+    useToastStore.getState().showToast('Đã xóa lịch sử thi thử HSK trên trình duyệt.', 'dark');
+  }, [level]);
 
   const confirmExit = useCallback(() => {
     persistDraftNow();
     refreshDrafts();
     setConfirmModal(null);
     setPhase('idle');
-    showToast('Đã lưu nháp tiến độ làm bài trên trình duyệt.', 'dark');
-  }, [persistDraftNow, refreshDrafts, showToast]);
+    useToastStore.getState().showToast('Đã lưu nháp tiến độ làm bài trên trình duyệt.', 'dark');
+  }, [persistDraftNow, refreshDrafts]);
 
   const backToList = useCallback(() => {
     refreshDrafts();

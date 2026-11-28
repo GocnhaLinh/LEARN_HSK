@@ -1,37 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useApp } from '@/context/AppContext';
 import { coursesApi } from '@/features/courses/api/courses.api';
 import type { BulkImportInput } from '@/features/courses/types';
-import { exercisesKeys } from '@/features/exercises/hooks/useExercisesQuery';
-import { vocabKeys } from '@/features/vocab/hooks/useVocab';
+import { useProfileStore } from '@/features/profile/stores/profile.store';
 import { spawnConfetti, spawnFloatingXP } from '@/lib/fx-utils';
+import { coursesKeys, exercisesKeys, vocabKeys } from '@/lib/query-keys';
+import { readAppCacheArray } from '@/lib/storage-cache';
 import { useToastStore } from '@/stores/toast.store';
 import type { ExerciseItem, Lesson, VocabWord } from '@/types';
 
-const STORAGE_KEY = 'hsk_quest_30_clean_v4';
-
-export const coursesKeys = {
-  all: ['courses'] as const,
-  lessons: ['courses', 'lessons'] as const,
-};
-
-function readCachedLessons(): Lesson[] | undefined {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return undefined;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed?.lessons) ? parsed.lessons : undefined;
-  } catch {
-    return undefined;
-  }
-}
+export { coursesKeys };
 
 /** Query: lessons list hydrated via /api/bootstrap with localStorage fallback */
 export function useCourses(enabled = true) {
   return useQuery<Lesson[]>({
     queryKey: coursesKeys.lessons,
     queryFn: () => coursesApi.getLessons(),
-    initialData: readCachedLessons,
+    initialData: () => readAppCacheArray<Lesson>('lessons'),
     enabled,
   });
 }
@@ -39,7 +23,6 @@ export function useCourses(enabled = true) {
 /** Mutation: bulk-import lessons, vocab & exercises into MongoDB HSK{level} (+30 XP) */
 export function useBulkImportLessons() {
   const qc = useQueryClient();
-  const { syncProfile } = useApp();
 
   return useMutation({
     mutationFn: ({
@@ -79,10 +62,13 @@ export function useBulkImportLessons() {
           ...res.exercises,
           ...prev,
         ]);
+        qc.setQueryData<ExerciseItem[]>(exercisesKeys.all, (prev) =>
+          prev ? [...res.exercises, ...prev] : prev,
+        );
         void qc.invalidateQueries({ queryKey: exercisesKeys.byLevel(vars.level) });
         createdExerciseCount = res.exercises.length;
       }
-      if (res.profile) syncProfile(res.profile);
+      if (res.profile) useProfileStore.getState().syncProfile(res.profile);
 
       const chunkSize = vars.splitSize > 0 ? vars.splitSize : Math.max(1, vars.picked.length);
       const totalChunks =

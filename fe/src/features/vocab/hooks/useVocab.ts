@@ -1,34 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { useApp } from '@/context/AppContext';
 import { VOCAB_STATUS_LABELS } from '@/data/defaults';
-import { coursesKeys } from '@/features/courses/hooks/useCourses';
-import { notesKeys } from '@/features/notes/hooks/useNotes';
+import { useProfileStore } from '@/features/profile/stores/profile.store';
 import { vocabApi } from '@/features/vocab/api/vocab.api';
 import type { VocabFormInput } from '@/features/vocab/types';
 import { downloadBlob } from '@/features/vocab/utils/vocab-utils';
 import { getTodayISO } from '@/lib/date-utils';
 import { spawnFloatingXP } from '@/lib/fx-utils';
+import { coursesKeys, notesKeys, vocabKeys } from '@/lib/query-keys';
+import { readAppCacheArray } from '@/lib/storage-cache';
 import { useToastStore } from '@/stores/toast.store';
 import type { Lesson, MindNote, VocabStatus, VocabWord } from '@/types';
 
-const STORAGE_KEY = 'hsk_quest_30_clean_v4';
-
-export const vocabKeys = {
-  all: ['vocab'] as const,
-  list: ['vocab', 'list'] as const,
-};
-
-function readCachedVocab(): VocabWord[] | undefined {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return undefined;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed?.vocab) ? parsed.vocab : undefined;
-  } catch {
-    return undefined;
-  }
-}
+export { vocabKeys };
 
 const TRIM_FIELDS = [
   'hanzi',
@@ -55,7 +39,7 @@ export function useVocab(enabled = true) {
   return useQuery<VocabWord[]>({
     queryKey: vocabKeys.list,
     queryFn: vocabApi.getVocab,
-    initialData: readCachedVocab,
+    initialData: () => readAppCacheArray<VocabWord>('vocab'),
     enabled,
   });
 }
@@ -63,13 +47,13 @@ export function useVocab(enabled = true) {
 /** Mutation: add a custom word (+10 XP) */
 export function useAddVocab() {
   const qc = useQueryClient();
-  const { lessons, syncProfile } = useApp();
 
   return useMutation({
     mutationFn: (input: VocabFormInput) =>
       vocabApi.createVocab({ ...input, ...normalizeVocabPatch(input) }),
     onMutate: async (input) => {
       await qc.cancelQueries({ queryKey: vocabKeys.list });
+      const lessons = qc.getQueryData<Lesson[]>(coursesKeys.lessons) || [];
       const defaultLesson = lessons.find((l) => l.level === input.level);
       const optimistic: VocabWord = {
         id: `cw_${Date.now()}`,
@@ -88,7 +72,7 @@ export function useAddVocab() {
         exampleVi: (input.exampleVi || '').trim() || input.meaning.trim(),
       };
       qc.setQueryData<VocabWord[]>(vocabKeys.list, (prev = []) => [optimistic, ...prev]);
-      syncProfile((prev) => ({ ...prev, xp: prev.xp + 10 }));
+      useProfileStore.getState().syncProfile((prev) => ({ ...prev, xp: prev.xp + 10 }));
       spawnFloatingXP(10);
       useToastStore.getState().showToast(`Đã thêm từ "${optimistic.hanzi}" (+10 XP)`, 'yellow');
       return { optimisticId: optimistic.id };
@@ -99,7 +83,7 @@ export function useAddVocab() {
           prev.map((w) => (w.id === ctx.optimisticId ? res.word : w)),
         );
       }
-      if (res?.profile) syncProfile(res.profile);
+      if (res?.profile) useProfileStore.getState().syncProfile(res.profile);
     },
     onError: () => {},
   });
@@ -225,16 +209,16 @@ export function useBatchDeleteVocab() {
 /** Hook: full JSON backup export & restore */
 export function useBackupJson() {
   const qc = useQueryClient();
-  const { profile, lessons, syncProfile } = useApp();
 
   const exportBackupJson = useCallback(async () => {
+    const { profile } = useProfileStore.getState();
     let payload: unknown = {
       exportedAt: new Date().toISOString(),
       xp: profile.xp,
       streak: profile.streak,
       dailyTarget: profile.dailyTarget,
       weeklyLog: profile.weeklyLog,
-      lessons,
+      lessons: qc.getQueryData<Lesson[]>(coursesKeys.lessons) || [],
       vocab: qc.getQueryData<VocabWord[]>(vocabKeys.list) || [],
       notes: qc.getQueryData<MindNote[]>(notesKeys.list) || [],
     };
@@ -248,7 +232,7 @@ export function useBackupJson() {
       `hsk-quest-3.0-backup-${getTodayISO()}.json`,
     );
     useToastStore.getState().showToast('Đã xuất file Backup JSON thành công!', 'yellow');
-  }, [lessons, profile, qc]);
+  }, [qc]);
 
   const importBackupJson = useCallback(
     async (rawJson: string) => {
@@ -263,7 +247,7 @@ export function useBackupJson() {
         if (Array.isArray(parsed.notes)) {
           qc.setQueryData<MindNote[]>(notesKeys.list, parsed.notes);
         }
-        syncProfile((prev) => ({
+        useProfileStore.getState().syncProfile((prev) => ({
           ...prev,
           xp: typeof parsed.xp === 'number' ? parsed.xp : prev.xp,
           streak: typeof parsed.streak === 'number' ? parsed.streak : prev.streak,
@@ -284,7 +268,7 @@ export function useBackupJson() {
         useToastStore.getState().showToast('File JSON không hợp lệ.', 'pink');
       }
     },
-    [qc, syncProfile],
+    [qc],
   );
 
   return { exportBackupJson, importBackupJson };

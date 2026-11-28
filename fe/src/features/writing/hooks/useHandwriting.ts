@@ -1,65 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useApp } from '@/context/AppContext';
 import { profileApi } from '@/features/profile/api/profile.api';
+import { useProfileStore } from '@/features/profile/stores/profile.store';
 import { handwritingApi } from '@/features/writing/api/handwriting.api';
 import { EffectCoords, spawnFloatingXP } from '@/lib/fx-utils';
+import { handwritingKeys } from '@/lib/query-keys';
+import { readAppCacheArray } from '@/lib/storage-cache';
 import { useToastStore } from '@/stores/toast.store';
 import type { HandwritingItem } from '@/types';
 
-const STORAGE_KEY = 'hsk_quest_30_clean_v4';
-
-export const handwritingKeys = {
-  all: ['writing'] as const,
-  list: ['writing', 'handwriting'] as const,
-};
-
-function readCachedHandwriting(): HandwritingItem[] | undefined {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return undefined;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed?.handwritingGallery) ? parsed.handwritingGallery : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function writeCachedHandwriting(items: HandwritingItem[]): void {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ ...parsed, handwritingGallery: items.slice(0, 6) }),
-    );
-  } catch {
-    // ignore storage quota errors
-  }
-}
+export { handwritingKeys };
 
 /** Query: fetch saved handwriting snapshots */
 export function useHandwriting() {
   return useQuery<HandwritingItem[]>({
     queryKey: handwritingKeys.list,
-    queryFn: async () => {
-      const data = await handwritingApi.getHandwriting();
-      writeCachedHandwriting(data);
-      return data;
-    },
-    initialData: readCachedHandwriting,
+    queryFn: handwritingApi.getHandwriting,
+    initialData: () => readAppCacheArray<HandwritingItem>('handwritingGallery'),
     initialDataUpdatedAt: 0,
   });
 }
 
 /** Mutation: record completed HanziWriter quiz (+10 XP + daily writing mission) */
 export function useRecordHanziQuiz() {
-  const { syncProfile } = useApp();
-
   return useMutation({
     mutationFn: (_vars: { char: string }) => profileApi.recordWritten(10),
 
     onMutate: ({ char }) => {
-      syncProfile((prev) => {
+      useProfileStore.getState().syncProfile((prev) => {
         const nextCount = prev.writtenCountToday + 1;
         return {
           ...prev,
@@ -73,7 +40,7 @@ export function useRecordHanziQuiz() {
     },
 
     onSuccess: (updatedProfile) => {
-      if (updatedProfile) syncProfile(updatedProfile);
+      if (updatedProfile) useProfileStore.getState().syncProfile(updatedProfile);
     },
 
     onError: () => {
@@ -85,7 +52,6 @@ export function useRecordHanziQuiz() {
 /** Mutation: save a freehand canvas snapshot (+10 XP) */
 export function useSaveHandwritingSnapshot() {
   const qc = useQueryClient();
-  const { syncProfile } = useApp();
 
   return useMutation({
     mutationFn: ({ img, caption }: { img: string; caption: string; coords?: EffectCoords }) =>
@@ -99,12 +65,10 @@ export function useSaveHandwritingSnapshot() {
         caption,
         date: new Date().toLocaleDateString('vi-VN'),
       };
-      qc.setQueryData<HandwritingItem[]>(handwritingKeys.list, (prev = []) => {
-        const next = [optimistic, ...prev].slice(0, 15);
-        writeCachedHandwriting(next);
-        return next;
-      });
-      syncProfile((prev) => {
+      qc.setQueryData<HandwritingItem[]>(handwritingKeys.list, (prev = []) =>
+        [optimistic, ...prev].slice(0, 15),
+      );
+      useProfileStore.getState().syncProfile((prev) => {
         const nextCount = prev.writtenCountToday + 1;
         return {
           ...prev,
@@ -119,13 +83,11 @@ export function useSaveHandwritingSnapshot() {
 
     onSuccess: (res, _vars, ctx) => {
       if (res?.item && ctx?.optimisticId) {
-        qc.setQueryData<HandwritingItem[]>(handwritingKeys.list, (prev = []) => {
-          const next = prev.map((item) => (item.id === ctx.optimisticId ? res.item : item));
-          writeCachedHandwriting(next);
-          return next;
-        });
+        qc.setQueryData<HandwritingItem[]>(handwritingKeys.list, (prev = []) =>
+          prev.map((item) => (item.id === ctx.optimisticId ? res.item : item)),
+        );
       }
-      if (res?.profile) syncProfile(res.profile);
+      if (res?.profile) useProfileStore.getState().syncProfile(res.profile);
       useToastStore.getState().showToast('Đã lưu bài viết tay vào sổ tay (+10 XP)', 'yellow');
     },
 
@@ -146,11 +108,9 @@ export function useDeleteHandwritingItem() {
 
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: handwritingKeys.list });
-      qc.setQueryData<HandwritingItem[]>(handwritingKeys.list, (prev = []) => {
-        const next = prev.filter((item) => item.id !== id);
-        writeCachedHandwriting(next);
-        return next;
-      });
+      qc.setQueryData<HandwritingItem[]>(handwritingKeys.list, (prev = []) =>
+        prev.filter((item) => item.id !== id),
+      );
     },
 
     onSuccess: () => {

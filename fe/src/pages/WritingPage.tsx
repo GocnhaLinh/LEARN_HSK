@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Button, Card } from '@/components/ui';
-import { useApp } from '@/context/AppContext';
+import { useVocab } from '@/features/vocab/hooks/useVocab';
 import { FreehandCanvasPanel } from '@/features/writing/components/FreehandCanvasPanel';
 import { HandwritingGallery } from '@/features/writing/components/HandwritingGallery';
 import { HanziWriterPanel } from '@/features/writing/components/HanziWriterPanel';
@@ -22,7 +22,7 @@ export const WritingPage: React.FC = () => {
   const { char: charParam } = useParams();
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { vocab } = useApp();
+  const { data: vocab = [] } = useVocab();
   const writeQuickPool = useWritingStore((s) => s.writeQuickPool);
 
   const isCanvasMode = pathname.startsWith('/writing/canvas');
