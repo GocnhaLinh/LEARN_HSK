@@ -65,6 +65,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Hobonichi-style subtle dot-grid notebook paper on Editorial Zine */
+:root body,
+[data-theme="zine"] body {
+  background-image: radial-gradient(rgba(20, 20, 20, 0.10) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+[data-theme="diary"] body {
+  background-image: none;
+}
+
 /* Core Theme Utility Classes with Cute Squishy / Jelly Interactions */
 .t-card {
   background-color: var(--bg-surface);
@@ -442,6 +452,158 @@ body {
   background-color: #EFE078 !important;
   border-style: solid !important;
   transform: scale(1.01);
+}
+
+/* Feminine Watercolor Margin Illustrations, Drifting Petals & Soft Sparkles */
+@keyframes sakuraFall {
+  0% {
+    transform: translate3d(0, -10px, 0) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(20px, 50vh, 0) rotate(165deg);
+  }
+  88% {
+    opacity: 0.78;
+  }
+  100% {
+    transform: translate3d(-12px, 105vh, 0) rotate(330deg);
+    opacity: 0;
+  }
+}
+@keyframes sakuraFallAlt {
+  0% {
+    transform: translate3d(0, -10px, 0) rotate(20deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(-22px, 50vh, 0) rotate(-145deg);
+  }
+  88% {
+    opacity: 0.78;
+  }
+  100% {
+    transform: translate3d(14px, 105vh, 0) rotate(-310deg);
+    opacity: 0;
+  }
+}
+@keyframes artSwayBranch {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(1.6deg); }
+}
+@keyframes artSwayStem {
+  0%, 100% { transform: rotate(-0.9deg); }
+  50% { transform: rotate(1deg); }
+}
+@keyframes lanternSway {
+  0%, 100% { transform: rotate(-1.4deg); }
+  50% { transform: rotate(1.4deg); }
+}
+@keyframes scrollUnroll {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-8px);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0% 0);
+    transform: translateY(0);
+  }
+}
+@keyframes scrollSwayLeft {
+  0%, 100% { transform: rotate(-1.05deg); }
+  50% { transform: rotate(1.15deg); }
+}
+@keyframes scrollSwayRight {
+  0%, 100% { transform: rotate(1.1deg); }
+  50% { transform: rotate(-1.05deg); }
+}
+@keyframes artFloatDreamy {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-0.4deg); }
+  50% { transform: translate3d(0, -7px, 0) rotate(0.5deg); }
+}
+@keyframes lanternGlow {
+  0%, 100% { opacity: 0.35; transform: scale(0.95); }
+  50% { opacity: 0.7; transform: scale(1.08); }
+}
+@keyframes marginArtIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes twinkleStar {
+  0%, 100% { opacity: 0.25; transform: scale(0.8) rotate(0deg); }
+  50% { opacity: 0.95; transform: scale(1.15) rotate(18deg); }
+}
+
+.sakura-petal {
+  animation: sakuraFall 12s linear infinite;
+  will-change: transform, opacity;
+}
+.sakura-petal-alt {
+  animation: sakuraFallAlt 12s linear infinite;
+  will-change: transform, opacity;
+}
+.art-sway-branch {
+  animation: marginArtIn 0.7s ease-out, artSwayBranch 8s ease-in-out infinite;
+  will-change: transform;
+}
+.art-sway-stem {
+  animation: marginArtIn 0.7s ease-out, artSwayStem 9.2s ease-in-out infinite;
+  will-change: transform;
+}
+.lantern-sway {
+  animation: marginArtIn 0.7s ease-out, lanternSway 8.4s ease-in-out infinite;
+  will-change: transform;
+}
+.scroll-unroll {
+  animation: scrollUnroll 2.2s cubic-bezier(0.32, 0.72, 0.25, 1) both;
+}
+.scroll-unroll-delay {
+  animation: scrollUnroll 2.2s cubic-bezier(0.32, 0.72, 0.25, 1) 0.28s both;
+}
+.scroll-sway-left {
+  animation: scrollSwayLeft 8.8s ease-in-out infinite;
+  will-change: transform;
+}
+.scroll-sway-right {
+  animation: scrollSwayRight 9.6s ease-in-out infinite;
+  will-change: transform;
+}
+.art-float-dreamy {
+  animation: marginArtIn 0.7s ease-out, artFloatDreamy 7.8s ease-in-out infinite;
+  will-change: transform;
+}
+.lantern-glow {
+  animation: lanternGlow 4.6s ease-in-out infinite;
+}
+.twinkle-star {
+  animation: twinkleStar 3.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sakura-petal,
+  .sakura-petal-alt,
+  .art-sway-branch,
+  .art-sway-stem,
+  .lantern-sway,
+  .scroll-unroll,
+  .scroll-unroll-delay,
+  .scroll-sway-left,
+  .scroll-sway-right,
+  .art-float-dreamy,
+  .lantern-glow,
+  .twinkle-star {
+    animation: none;
+  }
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }

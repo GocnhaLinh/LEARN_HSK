@@ -5,6 +5,7 @@ import { ToastContainer } from '@/components/feedback/ToastContainer';
 import { useExamLockStore } from '@/features/exercises/stores/exam-lock.store';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { BottomDock } from './BottomDock';
+import { MarginDecor } from './MarginDecor';
 import { Navbar } from './Navbar';
 import { ScrollToTopButton } from './ScrollToTopButton';
 
@@ -19,6 +20,7 @@ export const Layout: React.FC = () => {
   const { pathname } = useLocation();
   const pageKey = getPageTransitionKey(pathname);
   const isExamActive = useExamLockStore((s) => s.isExamActive);
+  const showMarginDecor = !isExamActive && !pathname.endsWith('/exercises');
   const mainRef = useRef<HTMLElement | null>(null);
 
   useScrollReveal(mainRef, pageKey);
@@ -30,6 +32,7 @@ export const Layout: React.FC = () => {
   return (
     <>
       {!isExamActive && <Navbar />}
+      {showMarginDecor && <MarginDecor pageKey={pageKey} />}
       <main
         ref={mainRef}
         className={`flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 pt-4 sm:pt-5 ${
