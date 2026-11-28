@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useApp } from '@/context/AppContext';
 import { VOCAB_STATUS_LABELS } from '@/data/defaults';
+import { coursesKeys } from '@/features/courses/hooks/useCourses';
 import { notesKeys } from '@/features/notes/hooks/useNotes';
 import { vocabApi } from '@/features/vocab/api/vocab.api';
 import type { VocabFormInput } from '@/features/vocab/types';
@@ -9,7 +10,7 @@ import { downloadBlob } from '@/features/vocab/utils/vocab-utils';
 import { getTodayISO } from '@/lib/date-utils';
 import { spawnFloatingXP } from '@/lib/fx-utils';
 import { useToastStore } from '@/stores/toast.store';
-import type { MindNote, VocabStatus, VocabWord } from '@/types';
+import type { Lesson, MindNote, VocabStatus, VocabWord } from '@/types';
 
 const STORAGE_KEY = 'hsk_quest_30_clean_v4';
 
@@ -224,7 +225,7 @@ export function useBatchDeleteVocab() {
 /** Hook: full JSON backup export & restore */
 export function useBackupJson() {
   const qc = useQueryClient();
-  const { profile, lessons, syncProfile, syncLessons } = useApp();
+  const { profile, lessons, syncProfile } = useApp();
 
   const exportBackupJson = useCallback(async () => {
     let payload: unknown = {
@@ -253,7 +254,9 @@ export function useBackupJson() {
     async (rawJson: string) => {
       try {
         const parsed = JSON.parse(rawJson);
-        if (Array.isArray(parsed.lessons) && parsed.lessons.length > 0) syncLessons(parsed.lessons);
+        if (Array.isArray(parsed.lessons) && parsed.lessons.length > 0) {
+          qc.setQueryData<Lesson[]>(coursesKeys.lessons, parsed.lessons);
+        }
         if (Array.isArray(parsed.vocab) && parsed.vocab.length > 0) {
           qc.setQueryData<VocabWord[]>(vocabKeys.list, parsed.vocab);
         }
@@ -281,7 +284,7 @@ export function useBackupJson() {
         useToastStore.getState().showToast('File JSON không hợp lệ.', 'pink');
       }
     },
-    [qc, syncLessons, syncProfile],
+    [qc, syncProfile],
   );
 
   return { exportBackupJson, importBackupJson };

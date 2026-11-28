@@ -1,4 +1,4 @@
-import { ExtractedExerciseRow, ExtractedVocabRow } from '../types';
+import type { ExtractedExerciseRow, ExtractedVocabRow } from '@/types';
 
 interface PdfTextItem {
   x: number;

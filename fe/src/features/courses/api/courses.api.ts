@@ -1,39 +1,9 @@
+import type {
+  BulkImportLessonsPayload,
+  BulkImportLessonsResponse,
+} from "@/features/courses/types";
 import apiClient from "@/lib/api/client";
-import type { ExerciseItem, Lesson, UserProfile, VocabWord } from "@/types";
-
-export interface BulkImportLessonsPayload {
-  level: number;
-  baseTitle: string;
-  splitSize: number;
-  autoGenerateExercises?: boolean;
-  words: Array<{
-    hanzi: string;
-    pinyin?: string;
-    english?: string;
-    meaning?: string;
-    exampleZh?: string;
-    exampleVi?: string;
-  }>;
-  extractedExercises?: Array<{
-    exerciseType?: "translate" | "fill_blank" | "writing" | "listen" | "quiz";
-    title: string;
-    question: string;
-    options?: string[];
-    correctAnswer?: string;
-    explanation?: string;
-    xpReward?: number;
-  }>;
-}
-
-export interface BulkImportLessonsResponse {
-  lessons: Lesson[];
-  words: VocabWord[];
-  exercises: ExerciseItem[];
-  totalChunks: number;
-  totalWords: number;
-  totalExercises: number;
-  profile: UserProfile;
-}
+import type { ExerciseItem, Lesson } from "@/types";
 
 export const coursesApi = {
   getLessons: async (level?: number): Promise<Lesson[]> => {

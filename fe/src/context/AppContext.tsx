@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 import { DEFAULT_PROFILE } from "@/data/defaults";
-import { exercisesKeys } from "@/features/exercises/hooks/useExercisesQuery";
+import { coursesKeys, useCourses } from "@/features/courses/hooks/useCourses";
 import { notesKeys } from "@/features/notes/hooks/useNotes";
 import { useVocab, vocabKeys } from "@/features/vocab/hooks/useVocab";
 import { handwritingKeys } from "@/features/writing/hooks/useHandwriting";
@@ -19,8 +19,6 @@ import { api } from "@/services/api";
 import { useToastStore } from "@/stores/toast.store";
 import {
   ExerciseItem,
-  ExtractedExerciseRow,
-  ExtractedVocabRow,
   HandwritingItem,
   Lesson,
   MindNote,
@@ -47,7 +45,6 @@ interface AppContextValue {
   syncProfile: (
     next: Partial<UserProfile> | ((prev: UserProfile) => UserProfile),
   ) => void;
-  syncLessons: (next: Lesson[]) => void;
   apiConnected: boolean;
   showToast: (msg: string, variant?: ToastVariant) => void;
   dismissToast: (id: string) => void;
@@ -61,14 +58,6 @@ interface AppContextValue {
     status: VocabStatus,
     ev?: ClickCoords,
   ) => Promise<void>;
-  bulkImportWords: (payload: {
-    level: number;
-    baseTitle: string;
-    splitSize: number;
-    picked: ExtractedVocabRow[];
-    autoGenerateExercises?: boolean;
-    extractedExercises?: ExtractedExerciseRow[];
-  }) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -117,9 +106,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       : {}),
   }));
 
-  const [lessons, setLessons] = useState<Lesson[]>(() =>
-    Array.isArray(cached?.lessons) ? cached.lessons : [],
-  );
+  const { data: lessons = [] } = useCourses(false);
   const { data: vocab = [] } = useVocab(false);
   const [exercises, setExercises] = useState<ExerciseItem[]>(() =>
     Array.isArray(cached?.exercises) ? cached.exercises : [],
@@ -136,8 +123,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     },
     [],
   );
-
-  const syncLessons = useCallback((next: Lesson[]) => setLessons(next), []);
 
   // Refs for stable callbacks (avoids tearing down callbacks / re-rendering consumers on data edits)
   const profileRef = useRef(profile);
@@ -218,7 +203,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           ? { ...DEFAULT_PROFILE.missionsDone, ...p.missionsDone }
           : DEFAULT_PROFILE.missionsDone,
       });
-      if (Array.isArray(data.lessons)) setLessons(data.lessons);
+      if (Array.isArray(data.lessons)) {
+        queryClient.setQueryData<Lesson[]>(coursesKeys.lessons, data.lessons);
+      }
       if (Array.isArray(data.vocab)) {
         queryClient.setQueryData<VocabWord[]>(vocabKeys.list, data.vocab);
       }
@@ -453,90 +440,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [triggerXpEffects],
   );
 
-  const bulkImportWords = useCallback(
-    async ({
-      level,
-      baseTitle,
-      splitSize,
-      picked,
-      autoGenerateExercises = true,
-      extractedExercises = [],
-    }: {
-      level: number;
-      baseTitle: string;
-      splitSize: number;
-      picked: ExtractedVocabRow[];
-      autoGenerateExercises?: boolean;
-      extractedExercises?: ExtractedExerciseRow[];
-    }) => {
-      const chunkSize = splitSize > 0 ? splitSize : Math.max(1, picked.length);
-      const totalChunks = picked.length > 0 ? Math.ceil(picked.length / chunkSize) : extractedExercises.length > 0 ? 1 : 0;
-      let createdExerciseCount = 0;
-
-      let savedToDb = false;
-
-      try {
-        const res = await api.bulkImportLessons({
-          level,
-          baseTitle,
-          splitSize,
-          autoGenerateExercises,
-          words: picked.map((item) => ({
-            hanzi: item.hanzi,
-            pinyin: item.pinyin,
-            english: item.english,
-            meaning: item.meaning,
-            exampleZh: item.exampleZh,
-            exampleVi: item.exampleVi,
-          })),
-          extractedExercises,
-        });
-        if (Array.isArray(res.lessons) && res.lessons.length) {
-          setLessons((prev) => [...res.lessons, ...prev]);
-        }
-        if (Array.isArray(res.words) && res.words.length) {
-          queryClient.setQueryData<VocabWord[]>(vocabKeys.list, (prev = []) => [
-            ...res.words,
-            ...prev,
-          ]);
-        }
-        if (Array.isArray(res.exercises) && res.exercises.length) {
-          setExercises((prev) => [...res.exercises, ...prev]);
-          queryClient.setQueryData<ExerciseItem[]>(
-            exercisesKeys.byLevel(level),
-            (prev = []) => [...res.exercises, ...prev],
-          );
-          void queryClient.invalidateQueries({
-            queryKey: exercisesKeys.byLevel(level),
-          });
-          createdExerciseCount = res.exercises.length;
-        }
-        if (res.profile) setProfile((prev) => ({ ...prev, ...res.profile }));
-        setApiConnected(true);
-        savedToDb = true;
-      } catch (err: any) {
-        setApiConnected(false);
-        showToast(
-          `Không kết nối được Backend (${err?.message || "Port 3001 chưa chạy"}) — chưa lưu vào MongoDB! Hãy kiểm tra terminal npm run dev:be.`,
-          "pink",
-        );
-        return false;
-      }
-
-      if (!savedToDb) return false;
-
-      const summaryMsg =
-        picked.length > 0
-          ? `Đã lưu ${picked.length} từ (${totalChunks} bài)${
-              createdExerciseCount > 0 ? ` & ${createdExerciseCount} bài tập tự nhập` : ""
-            } vào MongoDB HSK ${level}`
-          : `Đã lưu ${createdExerciseCount} câu bài tập vào MongoDB HSK ${level}`;
-      triggerXpEffects(30, summaryMsg);
-      return true;
-    },
-    [showToast, triggerXpEffects],
-  );
-
   const appCtxValue = useMemo<AppContextValue>(
     () => ({
       profile,
@@ -544,7 +447,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       vocab,
       exercises,
       syncProfile,
-      syncLessons,
       apiConnected,
       showToast,
       dismissToast,
@@ -554,7 +456,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       setFocusLevel,
       toggleMissionDone,
       rateFlashcardWord,
-      bulkImportWords,
     }),
     [
       profile,
@@ -562,7 +463,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       vocab,
       exercises,
       syncProfile,
-      syncLessons,
       apiConnected,
       showToast,
       dismissToast,
@@ -572,7 +472,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       setFocusLevel,
       toggleMissionDone,
       rateFlashcardWord,
-      bulkImportWords,
     ],
   );
 
