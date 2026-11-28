@@ -5,6 +5,7 @@ import { ToastContainer } from '@/components/feedback/ToastContainer';
 import { useExamLockStore } from '@/features/exercises/stores/exam-lock.store';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { BottomDock } from './BottomDock';
+import { Footer } from './Footer';
 import { MarginDecor } from './MarginDecor';
 import { Navbar } from './Navbar';
 import { ScrollToTopButton } from './ScrollToTopButton';
@@ -21,9 +22,9 @@ export const Layout: React.FC = () => {
   const pageKey = getPageTransitionKey(pathname);
   const isExamActive = useExamLockStore((s) => s.isExamActive);
   const showMarginDecor = !isExamActive && !pathname.endsWith('/exercises');
-  const mainRef = useRef<HTMLElement | null>(null);
+  const revealContainerRef = useRef<HTMLDivElement | null>(null);
 
-  useScrollReveal(mainRef, pageKey);
+  useScrollReveal(revealContainerRef, pageKey);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -33,16 +34,18 @@ export const Layout: React.FC = () => {
     <>
       {!isExamActive && <Navbar />}
       {showMarginDecor && <MarginDecor pageKey={pageKey} />}
-      <main
-        ref={mainRef}
-        className={`flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 pt-4 sm:pt-5 ${
-          isExamActive ? 'pb-10' : 'pb-28 xl:pb-4'
-        }`}
-      >
-        <div key={pageKey} className="module-animate">
-          <Outlet />
-        </div>
-      </main>
+      <div ref={revealContainerRef} className="flex-1 flex flex-col">
+        <main
+          className={`flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 pt-4 sm:pt-5 ${
+            isExamActive ? 'pb-10' : 'pb-4 xl:pb-6'
+          }`}
+        >
+          <div key={pageKey} className="module-animate">
+            <Outlet />
+          </div>
+        </main>
+        {!isExamActive && <Footer key={pageKey} />}
+      </div>
       {!isExamActive && <ScrollToTopButton />}
       {!isExamActive && <BottomDock />}
       <ToastContainer />

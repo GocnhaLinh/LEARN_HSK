@@ -15,6 +15,7 @@ export function useScrollReveal(containerRef: RefObject<HTMLElement | null>, res
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
 
     const cleanupTimers = new Map<HTMLElement, number>();
+    const pending = new Set<HTMLElement>();
 
     const finishReveal = (el: HTMLElement) => {
       const tid = cleanupTimers.get(el);
@@ -22,6 +23,7 @@ export function useScrollReveal(containerRef: RefObject<HTMLElement | null>, res
         window.clearTimeout(tid);
         cleanupTimers.delete(el);
       }
+      pending.delete(el);
       el.classList.remove('reveal-box', 'is-revealed');
       el.style.removeProperty('--reveal-delay');
     };
@@ -47,7 +49,7 @@ export function useScrollReveal(containerRef: RefObject<HTMLElement | null>, res
           batchIdx++;
         }
       },
-      { threshold: 0.01, rootMargin: '0px 0px -48px 0px' },
+      { threshold: 0.01, rootMargin: '0px 0px -20px 0px' },
     );
 
     const bindBox = (el: HTMLElement) => {
@@ -55,6 +57,7 @@ export function useScrollReveal(containerRef: RefObject<HTMLElement | null>, res
       if (el.closest('[role="dialog"], [data-no-reveal]')) return;
       el.dataset.revealBound = '1';
       el.classList.add('reveal-box');
+      pending.add(el);
       observer.observe(el);
     };
 
@@ -82,6 +85,13 @@ export function useScrollReveal(containerRef: RefObject<HTMLElement | null>, res
       mutObserver.disconnect();
       cleanupTimers.forEach((tid) => window.clearTimeout(tid));
       cleanupTimers.clear();
+      // Reset any elements that didn't finish revealing (fixes React StrictMode double-effect & HMR)
+      pending.forEach((el) => {
+        delete el.dataset.revealBound;
+        el.classList.remove('reveal-box', 'is-revealed');
+        el.style.removeProperty('--reveal-delay');
+      });
+      pending.clear();
     };
   }, [containerRef, resetKey]);
 }
