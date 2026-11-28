@@ -637,9 +637,15 @@ export function clearExamDraft(level: number): void {
   clearLevelValue(EXAM_DRAFT_KEY, level);
 }
 
-export function getLocalCourseExamStats(level: number): LocalCourseExamStats {
+export function getLocalCourseExamStats(
+  level: number,
+  validExerciseIds?: ReadonlySet<string>,
+): LocalCourseExamStats {
   const history = readExamHistory(level);
   const wrongIds = readWrongQuestionIds(level);
+  const wrongCount = validExerciseIds
+    ? wrongIds.filter((id) => validExerciseIds.has(id)).length
+    : wrongIds.length;
   const scored = history.filter((item) => typeof item.score10 === 'number');
   const bestScore10 = scored.length
     ? scored.reduce((max, item) => ((item.score10 ?? 0) > max ? item.score10! : max), 0)
@@ -648,7 +654,7 @@ export function getLocalCourseExamStats(level: number): LocalCourseExamStats {
   return {
     attemptCount: history.length,
     bestScore10,
-    wrongCount: wrongIds.length,
+    wrongCount,
     lastAttempt: history[0] || null,
   };
 }

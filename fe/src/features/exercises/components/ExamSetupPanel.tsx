@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import React from 'react';
 import { Badge, Button, Card, EmptyState, ProgressBar, Select } from '@/components/ui';
+import { useConfirmStore } from '@/stores/confirm.store';
 import type {
   ActiveDraftSummary,
   ExamConfig,
@@ -207,7 +208,18 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
               variant="default"
               size="md"
               leftIcon={<Trash2 className="w-3.5 h-3.5" />}
-              onClick={onDiscardDraft}
+              onClick={() =>
+                useConfirmStore.getState().openConfirm({
+                  title: 'Xác nhận hủy bản nháp?',
+                  message: (
+                    <p>
+                      Tiến độ bài luyện dịch đang làm dở của {meta.code} sẽ bị xóa khỏi trình duyệt.
+                    </p>
+                  ),
+                  confirmLabel: 'Hủy nháp',
+                  onConfirm: onDiscardDraft,
+                })
+              }
             >
               Hủy nháp
             </Button>
@@ -441,7 +453,19 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
                     variant="default"
                     size="sm"
                     leftIcon={<Trash2 className="w-3.5 h-3.5" />}
-                    onClick={onClearWrongBank}
+                    onClick={() =>
+                      useConfirmStore.getState().openConfirm({
+                        title: 'Xác nhận xóa danh sách câu hay sai?',
+                        message: (
+                          <p>
+                            Toàn bộ <strong>{wrongIdsCount} câu hay sai</strong> của {meta.code} sẽ
+                            được xóa khỏi danh sách ôn lại.
+                          </p>
+                        ),
+                        confirmLabel: 'Xóa danh sách',
+                        onConfirm: onClearWrongBank,
+                      })
+                    }
                   >
                     Xóa danh sách
                   </Button>
@@ -463,7 +487,19 @@ export const ExamSetupPanel: React.FC<ExamSetupPanelProps> = ({
                     variant="ghost"
                     size="xs"
                     leftIcon={<Trash2 className="w-3 h-3" />}
-                    onClick={onClearHistory}
+                    onClick={() =>
+                      useConfirmStore.getState().openConfirm({
+                        title: 'Xác nhận xóa lịch sử làm bài?',
+                        message: (
+                          <p>
+                            Toàn bộ <strong>{history.length} lượt làm bài</strong> của {meta.code}{' '}
+                            sẽ bị xóa khỏi trình duyệt.
+                          </p>
+                        ),
+                        confirmLabel: 'Xóa lịch sử',
+                        onConfirm: onClearHistory,
+                      })
+                    }
                   >
                     Xóa
                   </Button>

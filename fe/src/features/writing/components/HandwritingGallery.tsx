@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react';
 import React from 'react';
 import { Badge, Button, Card } from '@/components/ui';
+import { useConfirmStore } from '@/stores/confirm.store';
 import type { HandwritingItem } from '@/types';
 
 interface HandwritingGalleryProps {
@@ -39,7 +40,19 @@ export const HandwritingGallery: React.FC<HandwritingGalleryProps> = ({ items, o
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={() => onDelete(item.id)}
+                  onClick={() =>
+                    useConfirmStore.getState().openConfirm({
+                      title: 'Xác nhận xóa ảnh viết tay?',
+                      message: (
+                        <p>
+                          Bạn có chắc muốn xóa bài viết tay{' '}
+                          <strong>“{item.caption || 'Không có tiêu đề'}”</strong> khỏi sổ tay không?
+                        </p>
+                      ),
+                      confirmLabel: 'Xóa ảnh',
+                      onConfirm: () => onDelete(item.id),
+                    })
+                  }
                   className="w-6 h-6 text-red-700 hover:bg-red-50 shrink-0"
                   title="Xóa ảnh"
                   aria-label="Xóa ảnh viết tay"

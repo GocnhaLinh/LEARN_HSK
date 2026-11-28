@@ -31,13 +31,13 @@ const ModeSwitcherButtons: React.FC<ModeSwitcherButtonsProps> = ({
   const busyTitle = disabled ? 'Đang xử lý tải đề lên, vui lòng chờ hoàn tất...' : undefined;
   const baseBtn = vertical
     ? 'w-full px-2.5 py-2 text-[11px]'
-    : 'px-3 py-1.5 text-xs';
+    : 'px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs';
 
   return (
     <div
       className={`${
         vertical ? 'flex flex-col p-1.5 shadow-[3px_3px_0px_#141414]' : 'inline-flex p-1 shadow-[2px_2px_0px_#141414]'
-      } gap-1.5 rounded-xl border-2 border-[#141414] bg-white`}
+      } gap-1 sm:gap-1.5 rounded-xl border-2 border-[#141414] bg-white shrink-0`}
     >
       <button
         type="button"
@@ -210,35 +210,49 @@ export const ExercisesPage: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Top bar: Back button on Official tab; inline switcher only on narrow screens (<1420px) */}
+      {/* Inline top bar on narrow screens (<1420px) where outer gutters are hidden */}
       {!sessionActive && (
-        <div
-          className={`flex flex-wrap items-center justify-between gap-2 ${
-            activeTab === 'practice' ? 'min-[1420px]:hidden' : ''
-          }`}
-        >
+        <div className="flex items-center justify-between gap-2 min-[1420px]:hidden">
           {activeTab === 'official' ? (
             <Button
               variant="default"
               size="sm"
               disabled={isImporterBusy}
+              className="px-2.5 py-1.5 text-[11px] sm:text-xs whitespace-nowrap shrink-0"
               leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
               onClick={goBackToCourse}
             >
-              Quay lại {meta.code}
+              <span className="hidden sm:inline">Quay lại </span>
+              {meta.code}
             </Button>
           ) : (
             <div />
           )}
 
-          <div className="min-[1420px]:hidden">
-            <ModeSwitcherButtons
-              activeTab={activeTab}
-              disabled={isImporterBusy}
-              onSwitch={switchTab}
-            />
-          </div>
+          <ModeSwitcherButtons
+            activeTab={activeTab}
+            disabled={isImporterBusy}
+            onSwitch={switchTab}
+          />
         </div>
+      )}
+
+      {/* Outer left-gutter floating Back button on Official tab (>=1420px), symmetric with right switcher */}
+      {!sessionActive && activeTab === 'official' && (
+        <aside className="hidden min-[1420px]:block fixed top-20 left-3 z-30 w-[144px]">
+          <div className="p-1.5 rounded-xl border-2 border-[#141414] bg-white shadow-[3px_3px_0px_#141414]">
+            <button
+              type="button"
+              disabled={isImporterBusy}
+              title={isImporterBusy ? 'Đang xử lý tải đề lên, vui lòng chờ hoàn tất...' : undefined}
+              onClick={goBackToCourse}
+              className="w-full px-2.5 py-2 text-[11px] rounded-lg border-[1.5px] border-[#141414] bg-[#EFE078] text-[#111111] font-mono font-bold inline-flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#141414] hover:brightness-95 transition-all whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+              <span>Quay lại {meta.code}</span>
+            </button>
+          </div>
+        </aside>
       )}
 
       {/* Outer right-gutter floating switcher (>=1420px) */}

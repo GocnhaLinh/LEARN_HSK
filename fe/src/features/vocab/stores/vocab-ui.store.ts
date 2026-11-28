@@ -4,7 +4,6 @@ import type { VocabUiStore } from '@/features/vocab/types';
 export const useVocabUiStore = create<VocabUiStore>((set) => ({
   selectedIds: new Set(),
   expandedId: null,
-  confirmBulkDelete: false,
   modalOpen: false,
   editingWord: null,
   page: 1,
@@ -18,7 +17,7 @@ export const useVocabUiStore = create<VocabUiStore>((set) => ({
       const next = new Set(s.selectedIds);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return { selectedIds: next, confirmBulkDelete: false };
+      return { selectedIds: next };
     }),
 
   toggleSelectPage: (pageWordIds, allSelected) =>
@@ -28,11 +27,11 @@ export const useVocabUiStore = create<VocabUiStore>((set) => ({
         if (allSelected) next.delete(id);
         else next.add(id);
       }
-      return { selectedIds: next, confirmBulkDelete: false };
+      return { selectedIds: next };
     }),
 
-  selectAllIds: (ids) => set({ selectedIds: new Set(ids), confirmBulkDelete: false }),
-  clearSelection: () => set({ selectedIds: new Set(), confirmBulkDelete: false }),
+  selectAllIds: (ids) => set({ selectedIds: new Set(ids) }),
+  clearSelection: () => set({ selectedIds: new Set() }),
 
   pruneSelection: (validIds) =>
     set((s) => {
@@ -44,7 +43,6 @@ export const useVocabUiStore = create<VocabUiStore>((set) => ({
       return next.size === s.selectedIds.size ? s : { selectedIds: next };
     }),
 
-  setConfirmBulkDelete: (confirmBulkDelete) => set({ confirmBulkDelete }),
   toggleExpand: (id) => set((s) => ({ expandedId: s.expandedId === id ? null : id })),
   openAddModal: () => set({ editingWord: null, modalOpen: true }),
   openEditModal: (editingWord) => set({ editingWord, modalOpen: true }),

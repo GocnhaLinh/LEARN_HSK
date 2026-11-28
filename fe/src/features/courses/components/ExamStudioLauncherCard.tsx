@@ -29,9 +29,9 @@ export const ExamStudioLauncherCard: React.FC<ExamStudioLauncherCardProps> = Rea
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2">
-                <ClipboardCheck className="w-5 h-5" />
-                <h3 className="font-serif font-bold text-2xl">
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <ClipboardCheck className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                <h3 className="font-serif font-bold text-[18px] sm:text-2xl leading-snug whitespace-nowrap">
                   Phòng Thi thử &amp; Bài tập {meta.code}
                 </h3>
               </div>
@@ -69,12 +69,13 @@ export const ExamStudioLauncherCard: React.FC<ExamStudioLauncherCardProps> = Rea
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 w-full md:w-auto shrink-0">
             <Button
               variant="yellow"
               size="lg"
+              className="w-full sm:w-auto"
               onMouseEnter={preloadExercises}
-              leftIcon={<GraduationCap className="w-4 h-4" />}
+              leftIcon={<GraduationCap className="w-4 h-4 shrink-0" />}
               onClick={onOpenOfficialExams}
             >
               Đề thi chuẩn HSK (PDF + MP3)
@@ -82,9 +83,10 @@ export const ExamStudioLauncherCard: React.FC<ExamStudioLauncherCardProps> = Rea
             <Button
               variant="primary"
               size="lg"
+              className="w-full sm:w-auto"
               disabled={exerciseCount === 0}
               onMouseEnter={preloadExercises}
-              rightIcon={<ArrowRight className="w-4 h-4 text-[#EFE078]" />}
+              rightIcon={<ArrowRight className="w-4 h-4 text-[#EFE078] shrink-0" />}
               onClick={onOpenExercises}
             >
               Luyện dịch ({exerciseCount} câu)
